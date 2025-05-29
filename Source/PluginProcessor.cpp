@@ -19,8 +19,9 @@ AnalytiksAudioProcessor::AnalytiksAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
 #endif
+        apvts(*this, nullptr, "PARAMETERS", create_parameter_layout())
 {
 }
 
@@ -101,6 +102,22 @@ void AnalytiksAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_parameter_layout()
+{
+    auto layout = juce::AudioProcessorValueTreeState::ParameterLayout();
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_x",   "UI Seperator X",  0.0, 1.0,    0.75 ));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_y",   "UI Seperator Y",  0.0, 1.0,    0.6 ));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_width",   "Plugin Width",    150, 4000.0, 1920.0 ));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_height",  "Plugin Height",   150, 3000.0, 1130.0));
+    
+    // UI Accent Hue colour.
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_acc_hue", "UI Accent Hue",   0.0, 1.0,    0.8));
+
+    return layout;
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations

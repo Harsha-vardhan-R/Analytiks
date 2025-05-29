@@ -3,7 +3,47 @@
 <JUCERPROJECT id="xObbIS" name="Analytiks" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="IuDwvc" name="Analytiks">
+    <GROUP id="{3C14C6FC-44A6-C045-60FE-78200DAF2F1B}" name="pfft">
+      <FILE id="ou6RFg" name="fftpack.c" compile="1" resource="0" file="pfft/fftpack.c"/>
+      <FILE id="d3N0Jk" name="fftpack.h" compile="0" resource="0" file="pfft/fftpack.h"/>
+      <FILE id="mxGffr" name="pffft.c" compile="1" resource="0" file="pfft/pffft.c"/>
+      <FILE id="n0JnRN" name="pffft.h" compile="0" resource="0" file="pfft/pffft.h"/>
+      <FILE id="t5Ce8t" name="README.md" compile="0" resource="0" file="pfft/README.md"/>
+      <FILE id="X5nt2j" name="test_pffft.c" compile="1" resource="0" file="pfft/test_pffft.c"/>
+    </GROUP>
+    <GROUP id="{B29B5DBB-E8FC-3275-DCA5-C7D6D262FACE}" name="resources">
+      <FILE id="fN7cOa" name="move_svg_bright.svg" compile="0" resource="1"
+            file="resources/move_svg_bright.svg"/>
+      <FILE id="Vii5R2" name="move_svg_dull.svg" compile="0" resource="1"
+            file="resources/move_svg_dull.svg"/>
+      <FILE id="Ae9nQb" name="Roboto-Bold.ttf" compile="0" resource="1" file="resources/Roboto-Bold.ttf"/>
+      <FILE id="HpAVHX" name="Roboto-Italic.ttf" compile="0" resource="1"
+            file="resources/Roboto-Italic.ttf"/>
+      <FILE id="CSPbKX" name="Roboto-Medium.ttf" compile="0" resource="1"
+            file="resources/Roboto-Medium.ttf"/>
+      <FILE id="e7nCNu" name="Roboto-Regular.ttf" compile="0" resource="1"
+            file="resources/Roboto-Regular.ttf"/>
+      <FILE id="LM5JxD" name="Roboto-SemiBold.ttf" compile="0" resource="1"
+            file="resources/Roboto-SemiBold.ttf"/>
+    </GROUP>
     <GROUP id="{3E72B7D3-DED0-E4FF-879E-DB692AAB006B}" name="Source">
+      <GROUP id="{A02BA4A3-4F4F-6020-C61E-935B5F2AB59B}" name="UI_Comp">
+        <GROUP id="{30C3CF64-B105-5F88-C21F-A92CDF286085}" name="Analyser">
+          <FILE id="Pe4Ba1" name="Analyser.cpp" compile="1" resource="0" file="Source/UI_Comp/Analyser/Analyser.cpp"/>
+          <FILE id="YwftMm" name="Analyser.h" compile="0" resource="0" file="Source/UI_Comp/Analyser/Analyser.h"/>
+        </GROUP>
+        <GROUP id="{FD455707-5E25-74BB-5F31-CB3509659846}" name="DFT">
+          <FILE id="LSmjsP" name="DFT.cpp" compile="1" resource="0" file="Source/UI_Comp/DFT/DFT.cpp"/>
+          <FILE id="WkWJwP" name="DFT.h" compile="0" resource="0" file="Source/UI_Comp/DFT/DFT.h"/>
+        </GROUP>
+        <GROUP id="{FD994566-BAE3-33A0-998D-2AAA342215B4}" name="Spectrogram"/>
+        <GROUP id="{9CDF7521-E749-41BE-33FD-FC7664C380AC}" name="Stereo"/>
+        <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter"/>
+        <GROUP id="{85AFD57E-8789-5543-F85C-F58C0E515664}" name="widgets">
+          <FILE id="ekz1DS" name="drag_move.h" compile="0" resource="0" file="Source/UI_Comp/widgets/drag_move.h"/>
+        </GROUP>
+        <FILE id="TNsHc5" name="README.md" compile="0" resource="0" file="Source/UI_Comp/README.md"/>
+      </GROUP>
       <FILE id="g7cSDS" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="CM3ZL7" name="PluginProcessor.h" compile="0" resource="0"
