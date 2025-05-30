@@ -9,7 +9,7 @@
 // components.
 class MoveDragComponent : 
 	public juce::Component,
-	public juce::MouseListener		
+	public juce::MouseListener
 {
 public:
 
@@ -42,7 +42,8 @@ public:
 			svgBounds.getBottomLeft(), bounds.getBottomLeft().toFloat()
 		);
 
-		if (isMouseOverOrDragging()) svgDrawableBright->draw(g, 1.0f, transform);
+		if (isMouseButtonDown()) svgDrawableBright->draw(g, 1.0f, transform);
+		else if (isMouseOver()) svgDrawableBright->draw(g, 0.6f, transform);
 		else svgDrawableDull->draw(g, 1.0f, transform);
 
 	}
@@ -64,6 +65,7 @@ public:
 	void mouseDown(const juce::MouseEvent& event) override
 	{
 		mousePrevPosition = event.getScreenPosition();
+		repaint();
 	}
 	void mouseDrag(const juce::MouseEvent& event) override
 	{

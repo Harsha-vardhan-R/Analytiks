@@ -41,6 +41,8 @@
         <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter"/>
         <GROUP id="{85AFD57E-8789-5543-F85C-F58C0E515664}" name="widgets">
           <FILE id="ekz1DS" name="drag_move.h" compile="0" resource="0" file="Source/UI_Comp/widgets/drag_move.h"/>
+          <FILE id="HZdCUG" name="seperator_bar_labeler.h" compile="0" resource="0"
+                file="Source/UI_Comp/widgets/seperator_bar_labeler.h"/>
         </GROUP>
         <FILE id="TNsHc5" name="README.md" compile="0" resource="0" file="Source/UI_Comp/README.md"/>
       </GROUP>

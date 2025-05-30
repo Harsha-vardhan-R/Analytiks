@@ -14,8 +14,11 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor (AnalytiksAudioProc
     : AudioProcessorEditor (&p), 
     audioProcessor (p), 
     apvts_ref(audioProcessor.apvts),
-    move_drag_comp(move_callback)
+    move_drag_comp(move_callback),
+    volumeLabels(roboto_regular, volume_seperator_labels),
+    specrtumVolumeLabels(roboto_regular, spectrum_volume_seperator_labels)
 {
+
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (
@@ -32,6 +35,8 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor (AnalytiksAudioProc
     setSize(1300, 750);
 
     addAndMakeVisible(move_drag_comp);
+    addAndMakeVisible(volumeLabels);
+    addAndMakeVisible(specrtumVolumeLabels);
 
 }
 
@@ -47,7 +52,7 @@ void AnalytiksAudioProcessorEditor::paint (juce::Graphics& g)
     
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
     
-    juce::Colour accentColour = juce::Colour::fromHSV(hue, 1.0, 0.34, 1.0);
+    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.3, 0.3, 1.0);
 
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();
@@ -75,8 +80,8 @@ void AnalytiksAudioProcessorEditor::paint (juce::Graphics& g)
     // snap feature, if the space is too small snap and close that component.
     if (v_sep_x < 0.1) v_sep_x = 0.0;
     if (v_sep_x > 0.9) v_sep_x = 1.0;
-    if (h_sep_y < 0.1) h_sep_y = 0.0;
-    if (h_sep_y > 0.9) h_sep_y = 1.0;
+    if (h_sep_y < 0.2) h_sep_y = 0.0;
+    if (h_sep_y > 0.8) h_sep_y = 1.0;
 
     int verticalSeperator_x =
         ((bounds.getWidth() - seperatorBarWidthInPixels) * v_sep_x) + bounds.getX();
@@ -125,9 +130,10 @@ void AnalytiksAudioProcessorEditor::resized()
 
     // snap feature, if the space is too small snap and close that component.
     if (v_sep_x < 0.1) v_sep_x = 0.0;
-    if (v_sep_x > 0.9) v_sep_x = 1.0;
-    if (h_sep_y < 0.1) h_sep_y = 0.0;
-    if (h_sep_y > 0.9) h_sep_y = 1.0;
+    else if (v_sep_x > 0.9) v_sep_x = 1.0;
+
+    if (h_sep_y < 0.2) h_sep_y = 0.0;
+    else if (h_sep_y > 0.8) h_sep_y = 1.0;
 
     // relative to the present bounds.
     verticalSeperator_x =
@@ -138,9 +144,9 @@ void AnalytiksAudioProcessorEditor::resized()
     auto top_portion = bounds.removeFromTop(horizontalSeperator_y);
     auto horizontalSeperator = bounds.removeFromTop(seperatorBarWidthInPixels);
 
-    auto top_left_component = bounds.removeFromLeft(verticalSeperator_x);
-    auto verticalSepTopBounds = bounds.removeFromLeft(seperatorBarWidthInPixels);
-    auto top_right_component = bounds;
+    auto top_left_component = top_portion.removeFromLeft(verticalSeperator_x);
+    auto verticalSepTopBounds = top_portion.removeFromLeft(seperatorBarWidthInPixels);
+    auto top_right_component = top_portion;
 
     auto horizontalSepLeftPart = horizontalSeperator.removeFromLeft(verticalSeperator_x);
     auto moveButtonBounds = horizontalSeperator.removeFromLeft(seperatorBarWidthInPixels);
@@ -151,4 +157,7 @@ void AnalytiksAudioProcessorEditor::resized()
     auto bottom_right_component = bounds;
 
     move_drag_comp.setBounds(moveButtonBounds);
+
+    volumeLabels.setBounds(verticalSepBottomBounds);
+    specrtumVolumeLabels.setBounds(horizontalSepRightPart);
 }
