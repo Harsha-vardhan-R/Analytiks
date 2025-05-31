@@ -115,7 +115,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
     layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_height",  "Plugin Height",   150, 3000.0, 1130.0));
     
     // UI Accent Hue colour.
-    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_acc_hue", "UI Accent Hue",   0.0, 1.0,    0.8));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_acc_hue", "UI Accent Hue",   0.0, 1.0,    0.75));
 
     return layout;
 }
@@ -189,15 +189,14 @@ juce::AudioProcessorEditor* AnalytiksAudioProcessor::createEditor()
 //==============================================================================
 void AnalytiksAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    if (auto state = apvts.copyState().createXml())
+        copyXmlToBinary(*state, destData);
 }
 
 void AnalytiksAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    if (auto xmlState = getXmlFromBinary(data, sizeInBytes))
+        apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
 //==============================================================================

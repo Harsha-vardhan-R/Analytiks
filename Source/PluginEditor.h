@@ -20,11 +20,13 @@
 class AnalytiksAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
-    juce::Typeface::Ptr roboto_regular{
+
+    juce::Typeface::Ptr typeface_regular{
         juce::Typeface::createSystemTypefaceFor(
-            BinaryData::RobotoRegular_ttf,
-            BinaryData::RobotoRegular_ttfSize)
+            BinaryData::SpaceMonoRegular_ttf,
+            BinaryData::SpaceMonoRegular_ttfSize)
     };
+    juce::Font cust_font_regular{ typeface_regular };
 
     AnalytiksAudioProcessorEditor (AnalytiksAudioProcessor&);
     ~AnalytiksAudioProcessorEditor() override;
@@ -76,10 +78,8 @@ private:
 
     const std::vector<std::vector<juce::String>> volume_seperator_labels{
         {
-            /*{ "0", "-30", "-60", "inf", "-60", "-30", "0"},
-            { "0", "-20", "-40", "-60", "inf", "-60", "-40", "-20", "0"},*/
-            { "0", "", "-20", "", "-40", "", "-60", "", "-60", "", "-40", "", "-20", "", "0"},
-            { "0", "-10", "-20", "-30", "-40", "-50", "-60", "INF", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
+            { "0", "", "-20", "", "-40", "", "-60", " - ", "-60", "", "-40", "", "-20", "", "0"},
+            { "0", "-10", "-20", "-30", "-40", "-50", "-60", " - ", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
         }
     };
 
@@ -90,8 +90,11 @@ private:
         }
     };
 
-    SeperatorBarLabeler volumeLabels;
-    SeperatorBarLabeler specrtumVolumeLabels;
+    SeperatorBarLabeler volume_labels;
+    SeperatorBarLabeler specrtum_volume_labels;
+
+    juce::Label plugin_name_label;
+    juce::Label plugin_build_name_label;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalytiksAudioProcessorEditor)
 };

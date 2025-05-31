@@ -60,11 +60,16 @@ public:
 	}
 	void mouseUp(const juce::MouseEvent& event) override
 	{
+		juce::Desktop::setMousePosition(
+			getScreenBounds().getCentre()
+		);
+		setMouseCursor(juce::MouseCursor::NormalCursor);
 		repaint();
 	}
 	void mouseDown(const juce::MouseEvent& event) override
 	{
 		mousePrevPosition = event.getScreenPosition();
+		setMouseCursor(juce::MouseCursor::NoCursor);
 		repaint();
 	}
 	void mouseDrag(const juce::MouseEvent& event) override
