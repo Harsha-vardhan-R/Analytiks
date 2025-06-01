@@ -13,6 +13,7 @@
 
 #include "UI_Comp/widgets/drag_move.h"
 #include "UI_Comp/widgets/seperator_bar_labeler.h"
+#include "UI_Comp/widgets/seperator_bar_dynamic_labeler.h"
 
 //==============================================================================
 /**
@@ -27,6 +28,13 @@ public:
             BinaryData::SpaceMonoRegular_ttfSize)
     };
     juce::Font cust_font_regular{ typeface_regular };
+
+    juce::Typeface::Ptr typeface_bold{
+        juce::Typeface::createSystemTypefaceFor(
+            BinaryData::SpaceMonoBold_ttf,
+            BinaryData::SpaceMonoBold_ttfSize)
+    };
+    juce::Font cust_font_bold{ typeface_bold };
 
     AnalytiksAudioProcessorEditor (AnalytiksAudioProcessor&);
     ~AnalytiksAudioProcessorEditor() override;
@@ -85,13 +93,15 @@ private:
 
     const std::vector<std::vector<juce::String>> spectrum_volume_seperator_labels{
         {
-            { "", "-60", "", "-40", "", "-20", "", ""},
-            { "", "-60", "-50", "-40", "-30", "-20", "-10", ""},
+            { "", "-60", "", "-40", "", "-20", "", "0"},
+            { "", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
         }
     };
 
     SeperatorBarLabeler volume_labels;
     SeperatorBarLabeler specrtum_volume_labels;
+
+    LogSeperatorBarLabeler spectrum_frequency_labels;
 
     juce::Label plugin_name_label;
     juce::Label plugin_build_name_label;

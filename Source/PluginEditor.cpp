@@ -16,8 +16,10 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor (AnalytiksAudioProc
     apvts_ref(audioProcessor.apvts),
     move_drag_comp(move_callback),
     volume_labels(typeface_regular, volume_seperator_labels),
-    specrtum_volume_labels(typeface_regular, spectrum_volume_seperator_labels)
+    specrtum_volume_labels(typeface_regular, spectrum_volume_seperator_labels),
+    spectrum_frequency_labels(typeface_regular)
 {
+    setOpaque(true);
 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -35,8 +37,11 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor (AnalytiksAudioProc
     setSize(1300, 750);
 
     addAndMakeVisible(move_drag_comp);
+
     addAndMakeVisible(volume_labels);
     addAndMakeVisible(specrtum_volume_labels);
+    addAndMakeVisible(spectrum_frequency_labels);
+
     addAndMakeVisible(plugin_name_label);
     addAndMakeVisible(plugin_build_name_label);
 
@@ -87,8 +92,8 @@ void AnalytiksAudioProcessorEditor::paint (juce::Graphics& g)
     float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
 
     // snap feature, if the space is too small snap and close that component.
-    if (v_sep_x < 0.1) v_sep_x = 0.0;
-    else if (v_sep_x > 0.9) v_sep_x = 1.0;
+    if (v_sep_x < 0.2) v_sep_x = 0.0;
+    else if (v_sep_x > 0.8) v_sep_x = 1.0;
 
     if (h_sep_y < 0.2) h_sep_y = 0.0;
     else if (h_sep_y > 0.8) h_sep_y = 1.0;
@@ -122,7 +127,7 @@ void AnalytiksAudioProcessorEditor::paint (juce::Graphics& g)
     resize_triangle.lineTo(bottom_right_point.x, bottom_right_point.y - 10);
     resize_triangle.lineTo(bottom_right_point.x-10, bottom_right_point.y);
     resize_triangle.closeSubPath();
-    g.setColour(juce::Colours::white);
+    g.setColour(juce::Colours::lightgrey);
     g.fillPath(resize_triangle);
 }
 
@@ -150,8 +155,8 @@ void AnalytiksAudioProcessorEditor::resized()
     int verticalSeperator_x, horizontalSeperator_y;
 
     // snap feature, if the space is too small snap and close that component.
-    if (v_sep_x < 0.1) v_sep_x = 0.0;
-    else if (v_sep_x > 0.9) v_sep_x = 1.0;
+    if (v_sep_x < 0.2) v_sep_x = 0.0;
+    else if (v_sep_x > 0.8) v_sep_x = 1.0;
 
     if (h_sep_y < 0.2) h_sep_y = 0.0;
     else if (h_sep_y > 0.8) h_sep_y = 1.0;
@@ -181,18 +186,17 @@ void AnalytiksAudioProcessorEditor::resized()
 
     volume_labels.setBounds(verticalSepBottomBounds);
     specrtum_volume_labels.setBounds(horizontalSepRightPart);
+    spectrum_frequency_labels.setBounds(verticalSepTopBounds);
 
-    cust_font_regular.setHeight(0.9 * ribbonHeight);
-    plugin_name_label.setFont(cust_font_regular);
-
-    auto wid = cust_font_regular.getStringWidthFloat(plugin_name_label.getText());
+    cust_font_bold.setHeight(0.9 * ribbonHeight);
+    plugin_name_label.setFont(cust_font_bold);
+    auto wid = cust_font_bold.getStringWidthFloat(plugin_name_label.getText());
     
     cust_font_regular.setHeight(0.5* ribbonHeight);
     plugin_build_name_label.setFont(cust_font_regular);
-
     wid += cust_font_regular.getStringWidthFloat(plugin_build_name_label.getText());
-    wid *= 1.1;
-
+    
+    wid *= 1.2;
     auto plugin_name_build_version_bounds = juce::Rectangle<int>(
         getWidth() - wid,
         ribbon.getY(),
@@ -203,4 +207,6 @@ void AnalytiksAudioProcessorEditor::resized()
     plugin_name_label.
         setBounds(plugin_name_build_version_bounds.removeFromLeft(plugin_name_build_version_bounds.getWidth()*0.7));
     plugin_build_name_label.setBounds(plugin_name_build_version_bounds);
+
+
 }
