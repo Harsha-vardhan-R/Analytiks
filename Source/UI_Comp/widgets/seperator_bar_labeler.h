@@ -100,7 +100,7 @@ public:
 			float availableSpace = (float)getHeight() - totalLabelHeight;
 			float separation = labels.size() > 1 ? availableSpace / (labels.size() - 1) : 0.0f;
 
-			float x = 1.0f;
+			float x = 3.0f;
 			float y = 0.0f;
 
 			for (int label_index = 0; label_index < labels.size(); ++label_index)
@@ -159,7 +159,7 @@ public:
 private:
 	juce::Typeface::Ptr CustomFont;
 
-	float textHeightFraction = 0.7;
+	float textHeightFraction = 0.55;
 	std::vector<std::vector<juce::String>> label_sets;
 
 	// This is required as it will be used to calculate 

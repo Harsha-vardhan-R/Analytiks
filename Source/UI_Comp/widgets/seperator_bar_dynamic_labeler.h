@@ -69,7 +69,6 @@ public:
 		float bigger_dim_val = std::max<int>(getWidth(), getHeight());
 		float smaller_dim_val = std::min<int>(getWidth(), getHeight());
 
-		g.setColour(juce::Colours::lightgrey);
 
 		juce::Font custom_font(CustomFont);
 		g.setFont(custom_font);
@@ -103,7 +102,8 @@ public:
 			{
 				int rem_trail = removeTrailingZeros(freq_val);
 
-				// looks bad but works.
+				// looks very bad, but it is not that bad.
+				// - believe me bro.
 				if (ignore_level > 0) {
 					if (rem_trail == 9) {
 						continue;
@@ -130,6 +130,10 @@ public:
 					}
 				}
 
+				g.setColour(juce::Colours::lightgrey);
+				
+				if (rem_trail == 1)
+					g.setColour(juce::Colours::white);
 
 				float logd_val = linToLog(freq_val);
 
@@ -146,7 +150,7 @@ public:
 				auto text_y = getHeight() - offset;
 
 				juce::Rectangle<int> text_bounds(
-					1.0,
+					3.0,
 					text_y-TextWidthPixels,
 					getWidth(),
 					TextWidthPixels
@@ -180,7 +184,7 @@ public:
 private:
 	juce::Typeface::Ptr CustomFont;
 
-	float textHeightFraction = 0.7;
+	float textHeightFraction = 0.55;
 
 	std::atomic<int>
 		min_val = 10,

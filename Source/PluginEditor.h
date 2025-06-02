@@ -8,12 +8,11 @@
 
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "MainPage.h"
 
-#include "UI_Comp/widgets/drag_move.h"
-#include "UI_Comp/widgets/seperator_bar_labeler.h"
-#include "UI_Comp/widgets/seperator_bar_dynamic_labeler.h"
+#include "UI_Comp/widgets/settingsPage.h"
 
 //==============================================================================
 /**
@@ -21,90 +20,31 @@
 class AnalytiksAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
-
-    juce::Typeface::Ptr typeface_regular{
-        juce::Typeface::createSystemTypefaceFor(
-            BinaryData::SpaceMonoRegular_ttf,
-            BinaryData::SpaceMonoRegular_ttfSize)
-    };
-    juce::Font cust_font_regular{ typeface_regular };
-
-    juce::Typeface::Ptr typeface_bold{
-        juce::Typeface::createSystemTypefaceFor(
-            BinaryData::SpaceMonoBold_ttf,
-            BinaryData::SpaceMonoBold_ttfSize)
-    };
-    juce::Font cust_font_bold{ typeface_bold };
-
-    AnalytiksAudioProcessorEditor (AnalytiksAudioProcessor&);
+    AnalytiksAudioProcessorEditor (
+        AnalytiksAudioProcessor&,
+        juce::AudioProcessorValueTreeState& apvts_ref);
     ~AnalytiksAudioProcessorEditor() override;
 
-    //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
-
-    std::function<void(juce::Point<int>)> move_callback =
-        [this](juce::Point<int> delta) {
-        float width = getWidth();
-        float height = getHeight();
-        float paddingInPixels = std::clamp<int>(paddingWidthFraction * width, 2, 6);
-        float ribbonHeight = std::clamp<int>(ribbonHeightFraction * height, 25, 35);
-
-        // Get current values
-        float v_sep_x = apvts_ref.getRawParameterValue("ui_sep_x")->load();
-        float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
-
-        // Calculate new positions
-        float new_v_sep_x = v_sep_x + (float)delta.x / (width - 2 * paddingInPixels);
-        float new_h_sep_y = h_sep_y + (float)delta.y / (height - paddingInPixels - ribbonHeight);
-
-        apvts_ref.getRawParameterValue("ui_sep_x")->store(
-            std::clamp<float>(new_v_sep_x, 0.0f, 1.0f)
-        );
-        apvts_ref.getRawParameterValue("ui_sep_y")->store(
-            std::clamp<float>(new_h_sep_y, 0.0f, 1.0f)
-        );
-
-        resized();
-        repaint();
-    };
 
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     AnalytiksAudioProcessor& audioProcessor;
 
-    // Fractions of width or height taken by base components.
-    float ribbonHeightFraction = 0.045;
-    float paddingWidthFraction = 0.005;
-    
-    float seperatorBarWidthInPixels = 25;
+    int settings_width_min = 200;
 
-    juce::AudioProcessorValueTreeState& apvts_ref;
-
-    MoveDragComponent move_drag_comp;
-
-    const std::vector<std::vector<juce::String>> volume_seperator_labels{
-        {
-            { "0", "", "-20", "", "-40", "", "-60", " - ", "-60", "", "-40", "", "-20", "", "0"},
-            { "0", "-10", "-20", "-30", "-40", "-50", "-60", " - ", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
-        }
+    std::function<void(bool)> freeze_button_callback = [](bool button_state) {
+        
     };
 
-    const std::vector<std::vector<juce::String>> spectrum_volume_seperator_labels{
-        {
-            { "", "-60", "", "-40", "", "-20", "", "0"},
-            { "", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
-        }
+    std::function<void(bool)> settings_button_callback = [this](bool button_state) {
+        resized();
     };
 
-    SeperatorBarLabeler volume_labels;
-    SeperatorBarLabeler specrtum_volume_labels;
-
-    LogSeperatorBarLabeler spectrum_frequency_labels;
-
-    juce::Label plugin_name_label;
-    juce::Label plugin_build_name_label;
+    MainPage mainUIComponent;
+    settingsPage settings_page_component;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalytiksAudioProcessorEditor)
 };

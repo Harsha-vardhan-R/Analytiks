@@ -12,16 +12,21 @@
       <FILE id="X5nt2j" name="test_pffft.c" compile="1" resource="0" file="pfft/test_pffft.c"/>
     </GROUP>
     <GROUP id="{B29B5DBB-E8FC-3275-DCA5-C7D6D262FACE}" name="resources">
+      <FILE id="KaantR" name="freeze_icon.svg" compile="0" resource="1" file="resources/freeze_icon.svg"/>
+      <FILE id="HGvuHp" name="Lato-Regular.ttf" compile="0" resource="1"
+            file="resources/Lato-Regular.ttf"/>
       <FILE id="fN7cOa" name="move_svg_bright.svg" compile="0" resource="1"
             file="resources/move_svg_bright.svg"/>
       <FILE id="Vii5R2" name="move_svg_dull.svg" compile="0" resource="1"
             file="resources/move_svg_dull.svg"/>
+      <FILE id="XSzpLa" name="settings_icon.svg" compile="0" resource="1"
+            file="resources/settings_icon.svg"/>
       <FILE id="bxudYg" name="SpaceMono-Bold.ttf" compile="0" resource="1"
             file="resources/SpaceMono-Bold.ttf"/>
-      <FILE id="q0CeMZ" name="SpaceMono-Regular.ttf" compile="0" resource="1"
-            file="resources/SpaceMono-Regular.ttf"/>
     </GROUP>
     <GROUP id="{3E72B7D3-DED0-E4FF-879E-DB692AAB006B}" name="Source">
+      <FILE id="MW5hNK" name="MainPage.cpp" compile="1" resource="0" file="Source/MainPage.cpp"/>
+      <FILE id="Vr5U0q" name="MainPage.h" compile="0" resource="0" file="Source/MainPage.h"/>
       <GROUP id="{A02BA4A3-4F4F-6020-C61E-935B5F2AB59B}" name="UI_Comp">
         <GROUP id="{30C3CF64-B105-5F88-C21F-A92CDF286085}" name="Analyser">
           <FILE id="Pe4Ba1" name="Analyser.cpp" compile="1" resource="0" file="Source/UI_Comp/Analyser/Analyser.cpp"/>
@@ -36,10 +41,12 @@
         <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter"/>
         <GROUP id="{85AFD57E-8789-5543-F85C-F58C0E515664}" name="widgets">
           <FILE id="ekz1DS" name="drag_move.h" compile="0" resource="0" file="Source/UI_Comp/widgets/drag_move.h"/>
+          <FILE id="LEdKl1" name="icon_button.h" compile="0" resource="0" file="Source/UI_Comp/widgets/icon_button.h"/>
           <FILE id="ZfiKSF" name="seperator_bar_dynamic_labeler.h" compile="0"
                 resource="0" file="Source/UI_Comp/widgets/seperator_bar_dynamic_labeler.h"/>
           <FILE id="HZdCUG" name="seperator_bar_labeler.h" compile="0" resource="0"
                 file="Source/UI_Comp/widgets/seperator_bar_labeler.h"/>
+          <FILE id="EP9UCa" name="settingsPage.h" compile="0" resource="0" file="Source/UI_Comp/widgets/settingsPage.h"/>
         </GROUP>
         <FILE id="TNsHc5" name="README.md" compile="0" resource="0" file="Source/UI_Comp/README.md"/>
       </GROUP>

@@ -8,8 +8,7 @@
 // The move kind of thing on the seperators that is used to resize different
 // components.
 class MoveDragComponent : 
-	public juce::Component,
-	public juce::MouseListener
+	public juce::Component
 {
 public:
 
@@ -21,8 +20,8 @@ public:
 
 	void paint(juce::Graphics& g) override 
 	{
-		if (isMouseButtonDown()) g.setColour(juce::Colours::grey);
-		else g.setColour(juce::Colours::white);
+		if (isMouseButtonDown()) g.setColour(juce::Colours::darkgrey);
+		else g.setColour(juce::Colours::grey);
 		
 		g.drawRect(g.getClipBounds(), 1.0);
 		
