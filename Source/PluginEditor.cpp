@@ -1,10 +1,3 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -22,7 +15,7 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor(
 {
     setOpaque(true);
     
-    setResizable(true, false);
+    setResizable(true, true);
     setResizeLimits(
         600,
         600,
@@ -36,10 +29,13 @@ AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor(
 
     addAndMakeVisible(mainUIComponent);
     addAndMakeVisible(settings_page_component);
+
+    audioProcessor.apvts.getParameter("ui_acc_hue")->addListener(this);
 }
 
 AnalytiksAudioProcessorEditor::~AnalytiksAudioProcessorEditor()
 {
+    audioProcessor.apvts.getParameter("ui_acc_hue")->removeListener(this);
 }
 
 //==============================================================================
@@ -53,16 +49,39 @@ void AnalytiksAudioProcessorEditor::resized()
 
     auto bounds = getLocalBounds();
 
-    auto setting_page_width= std::max<int>(settings_width_min, bounds.getWidth() * 0.3);
+    auto setting_page_width= std::clamp<int>(
+        bounds.getWidth() * 0.25,
+        settings_width_min, 
+        settings_width_max);
 
     if (mainUIComponent.settings_toggle_button.state)
     {
-        settings_page_component.setBounds(bounds.removeFromLeft(setting_page_width));
+        settings_page_component.setBounds(bounds.removeFromRight(setting_page_width));
     }
     else 
     {
-        settings_page_component.setBounds(bounds.removeFromLeft(0));
+        settings_page_component.setBounds(bounds.removeFromRight(0));
     }
 
     mainUIComponent.setBounds(bounds);
+
+    /*float normWidth = (float)(getWidth() - MIN_WIDTH) / (float)(MAX_WIDTH - MIN_WIDTH);
+    float normHeight = (float)(getHeight() - MIN_HEIGHT) / (float)(MAX_HEIGHT - MIN_HEIGHT);
+
+    normWidth = std::clamp(normWidth, 0.0f, 1.0f);
+    normHeight = std::clamp(normHeight, 0.0f, 1.0f);
+
+    audioProcessor.apvts.getParameter("ui_width")->setValueNotifyingHost(normWidth);
+    audioProcessor.apvts.getParameter("ui_height")->setValueNotifyingHost(normHeight);*/
+}
+
+void AnalytiksAudioProcessorEditor::parameterValueChanged
+    (int param_index, float new_value)
+{ 
+    mainUIComponent.repaint();
+}
+
+void AnalytiksAudioProcessorEditor::parameterGestureChanged
+(int param_index, bool new_value)
+{
 }

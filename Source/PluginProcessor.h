@@ -1,18 +1,15 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin processor.
-
-  ==============================================================================
-*/
 
 #pragma once
 
 #include <JuceHeader.h>
 
-//==============================================================================
-/**
-*/
+constexpr auto MIN_WIDTH = 600;
+constexpr auto  MIN_HEIGHT = 600;
+constexpr auto  MAX_WIDTH = 4000;
+constexpr auto  MAX_HEIGHT = 3000;
+constexpr auto  DEFAULT_WIDTH = 1200;
+constexpr auto  DEFAULT_HEIGHT = 800;
+
 class AnalytiksAudioProcessor  : public juce::AudioProcessor
 {
 public:

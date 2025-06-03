@@ -1,11 +1,3 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -14,10 +6,9 @@
 
 #include "UI_Comp/widgets/settingsPage.h"
 
-//==============================================================================
-/**
-*/
-class AnalytiksAudioProcessorEditor  : public juce::AudioProcessorEditor
+class AnalytiksAudioProcessorEditor  : 
+    public juce::AudioProcessorEditor,
+    public juce::AudioProcessorParameter::Listener
 {
 public:
     AnalytiksAudioProcessorEditor (
@@ -28,12 +19,16 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    void parameterValueChanged(int param_index, float new_value) override;
+    void parameterGestureChanged(int param_index, bool ) override;
+
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     AnalytiksAudioProcessor& audioProcessor;
 
     int settings_width_min = 200;
+    int settings_width_max = 300;
 
     std::function<void(bool)> freeze_button_callback = [](bool button_state) {
         

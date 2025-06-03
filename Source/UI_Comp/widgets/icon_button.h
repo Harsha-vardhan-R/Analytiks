@@ -17,23 +17,21 @@ public:
 	void paint(juce::Graphics& g) override
 	{
 		auto bounds = getLocalBounds();
-		auto amnt = (float)bounds.getWidth() * 0.1;
-		bounds.reduce(amnt, amnt);
+		auto amnt = (float)bounds.getWidth() * 0.15;
 
-		if (down)
-		{
-			g.setColour(juce::Colours::white.withAlpha(0.4f));
-			g.fillAll();
-			bounds.reduce(amnt, amnt);
-		}
-		else if (hovering)
+		if (down || state)
 		{
 			g.setColour(juce::Colours::white.withAlpha(0.2f));
-			g.fillAll();
+			g.fillEllipse(bounds.toFloat());
+		}
+		if (hovering)
+		{
+			g.setColour(juce::Colours::white.withAlpha(0.2f));
+			g.fillEllipse(bounds.toFloat());
 		}
 
-		g.setColour(juce::Colours::white);
-		
+		bounds.reduce(amnt, amnt);
+
 		auto svgBounds = local_icon->getDrawableBounds();
 
 		juce::AffineTransform transform = juce::AffineTransform::fromTargetPoints(
@@ -42,7 +40,7 @@ public:
 			svgBounds.getBottomLeft(), bounds.getBottomLeft().toFloat()
 		);
 
-		local_icon->draw(g, 1.0f, transform);
+		local_icon->draw(g, (state) ? 1.0f : 0.7 , transform);
 	}
 
 	void resized() override {}
@@ -59,13 +57,13 @@ public:
 	}
 	void mouseUp(const juce::MouseEvent& event) override
 	{
-		state = !state;
 		down = false;
-		local_onClickCallback(state);
 		repaint();
 	}
 	void mouseDown(const juce::MouseEvent& event) override
 	{
+		state = !state;
+		local_onClickCallback(state);
 		down = true;
 		repaint();
 	}

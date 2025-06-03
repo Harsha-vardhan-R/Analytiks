@@ -50,7 +50,7 @@ void MainPage::paint(juce::Graphics& g)
     
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
 
-    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.25, 0.1, 1.0);
+    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.75, 0.1, 1.0);
 
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();
@@ -103,16 +103,16 @@ void MainPage::paint(juce::Graphics& g)
     g.fillRect(verticalSeperator);
     g.fillRect(horizontalSeperator);
 
-    // draw a small triangle at the bottom,
-    // to let user know it can be resized.
-    auto bottom_right_point = ribbon.getBottomRight();
-    juce::Path resize_triangle;
-    resize_triangle.startNewSubPath(bottom_right_point.toFloat());
-    resize_triangle.lineTo(bottom_right_point.x, bottom_right_point.y - 10);
-    resize_triangle.lineTo(bottom_right_point.x-10, bottom_right_point.y);
-    resize_triangle.closeSubPath();
-    g.setColour(juce::Colours::lightgrey);
-    g.fillPath(resize_triangle);
+    //// draw a small triangle at the bottom,
+    //// to let user know it can be resized.
+    //auto bottom_right_point = ribbon.getBottomRight();
+    //juce::Path resize_triangle;
+    //resize_triangle.startNewSubPath(bottom_right_point.toFloat());
+    //resize_triangle.lineTo(bottom_right_point.x, bottom_right_point.y - 10);
+    //resize_triangle.lineTo(bottom_right_point.x-10, bottom_right_point.y);
+    //resize_triangle.closeSubPath();
+    //g.setColour(juce::Colours::lightgrey);
+    //g.fillPath(resize_triangle);
 }
 
 void MainPage::resized()
