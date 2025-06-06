@@ -17,8 +17,11 @@ public:
         
         UI_accent_colour_slider.setSliderStyle(juce::Slider::SliderStyle::LinearBar);
         UI_accent_colour_slider.setLookAndFeel(&styles);
+        UI_accent_colour_slider.setColour(juce::Slider::ColourIds::textBoxTextColourId, juce::Colours::black);
+        UI_accent_colour_slider.setColour(juce::Slider::ColourIds::trackColourId, juce::Colours::orange);
         UI_accent_colour_slider_label.setText("UI Accent Colour", juce::dontSendNotification);
         UI_accent_colour_slider_label.setFont(16.0f); // Set font size here if you want
+        UI_accent_colour_slider_label.setColour(juce::Label::ColourIds::textColourId, juce::Colours::darkgrey);
         UI_accent_colour_slider_attachment =
             std::make_unique < juce::SliderParameterAttachment >(
                 *apvts_ref.getParameter("ui_acc_hue"),
@@ -27,7 +30,7 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        g.fillAll(juce::Colours::grey);
+        g.fillAll(juce::Colours::white);
     }
 
     void resized() override
@@ -45,7 +48,7 @@ public:
 private:
     juce::AudioProcessorValueTreeState& apvts_ref;
 
-    juce::LookAndFeel_V2 styles;
+    juce::LookAndFeel_V4 styles;
 
     juce::Label UI_accent_colour_slider_label;
 

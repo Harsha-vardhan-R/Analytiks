@@ -50,7 +50,7 @@ void MainPage::paint(juce::Graphics& g)
     
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
 
-    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.75, 0.1, 1.0);
+    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.75, 0.35, 1.0);
 
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();

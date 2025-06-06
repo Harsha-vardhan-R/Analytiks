@@ -68,10 +68,10 @@ private:
         float new_v_sep_x = v_sep_x + (float)delta.x / (width - 2 * paddingInPixels);
         float new_h_sep_y = h_sep_y + (float)delta.y / (height - paddingInPixels - ribbonHeight);
 
-        apvts_ref.getRawParameterValue("ui_sep_x")->store(
+        apvts_ref.getParameter("ui_sep_x")->setValueNotifyingHost(
             std::clamp<float>(new_v_sep_x, 0.0f, 1.0f)
         );
-        apvts_ref.getRawParameterValue("ui_sep_y")->store(
+        apvts_ref.getParameter("ui_sep_y")->setValueNotifyingHost(
             std::clamp<float>(new_h_sep_y, 0.0f, 1.0f)
         );
 

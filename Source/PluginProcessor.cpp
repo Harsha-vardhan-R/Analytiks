@@ -103,11 +103,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
 {
     auto layout = juce::AudioProcessorValueTreeState::ParameterLayout();
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_x",   "UI Seperator X",  0.0, 1.0,    0.75 ));
-    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_y",   "UI Seperator Y",  0.0, 1.0,    0.6 ));
-
-    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_width",   "Plugin Width",    MIN_WIDTH,  MAX_WIDTH,  DEFAULT_WIDTH ));
-    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_height",  "Plugin Height",   MIN_HEIGHT, MAX_HEIGHT, DEFAULT_HEIGHT  ));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_x",   "UI Seperator X", juce::NormalisableRange<float>(0.0, 1.0), 0.75
+        , " ", juce::AudioProcessorParameter::otherMeter));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_sep_y",   "UI Seperator Y", juce::NormalisableRange<float>(0.0, 1.0),    0.6
+        , " ", juce::AudioProcessorParameter::otherMeter));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_width",   "Plugin Width",   juce::NormalisableRange<float>(MIN_WIDTH,  MAX_WIDTH),  DEFAULT_WIDTH
+        , " ", juce::AudioProcessorParameter::otherMeter));
+    layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_height",  "Plugin Height",  juce::NormalisableRange<float>(MIN_HEIGHT, MAX_HEIGHT), DEFAULT_HEIGHT
+        , " ", juce::AudioProcessorParameter::otherMeter));
     
     // UI Accent Hue colour.
     layout.add(std::make_unique<juce::AudioParameterFloat>( "ui_acc_hue", "UI Accent Hue",   0.0, 1.0,    0.9));

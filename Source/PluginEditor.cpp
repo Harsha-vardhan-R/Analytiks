@@ -65,14 +65,18 @@ void AnalytiksAudioProcessorEditor::resized()
 
     mainUIComponent.setBounds(bounds);
 
-    /*float normWidth = (float)(getWidth() - MIN_WIDTH) / (float)(MAX_WIDTH - MIN_WIDTH);
-    float normHeight = (float)(getHeight() - MIN_HEIGHT) / (float)(MAX_HEIGHT - MIN_HEIGHT);
+    // save the width and height, for the next time this opens.
+    if (getParentComponent())
+    {
+        float normWidth = (float)(getParentWidth() - MIN_WIDTH) / (float)(MAX_WIDTH - MIN_WIDTH);
+        float normHeight = (float)(getParentHeight() - MIN_HEIGHT) / (float)(MAX_HEIGHT - MIN_HEIGHT);
 
-    normWidth = std::clamp(normWidth, 0.0f, 1.0f);
-    normHeight = std::clamp(normHeight, 0.0f, 1.0f);
+        normWidth = std::clamp(normWidth, 0.0f, 1.0f);
+        normHeight = std::clamp(normHeight, 0.0f, 1.0f);
 
-    audioProcessor.apvts.getParameter("ui_width")->setValueNotifyingHost(normWidth);
-    audioProcessor.apvts.getParameter("ui_height")->setValueNotifyingHost(normHeight);*/
+        audioProcessor.apvts.getParameter("ui_width")->setValueNotifyingHost(normWidth);
+        audioProcessor.apvts.getParameter("ui_height")->setValueNotifyingHost(normHeight);
+    }
 }
 
 void AnalytiksAudioProcessorEditor::parameterValueChanged
