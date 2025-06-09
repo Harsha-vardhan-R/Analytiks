@@ -72,7 +72,8 @@ public:
 
 		juce::Font custom_font(CustomFont);
 		g.setFont(custom_font);
-		g.setFont(textHeightFraction * smaller_dim_val);
+		float fnt_height = textHeightFraction * smaller_dim_val;
+		g.setFont(fnt_height);
 
 		// ranges in log.
 		float logd_min = linToLog(min_val);
@@ -88,7 +89,7 @@ public:
 		}
 
 		// increasing ignore_level makes more values to get ignored.
-		float heuristic_approx = (float)(val_count*TextWidthPixels*2.5) / (bigger_dim_val);
+		float heuristic_approx = (float)(val_count * fnt_height * 3.0) / (bigger_dim_val);
  		int ignore_level = std::clamp<int>(heuristic_approx, 0, 5);
 
 		// we know the range for which we need to show the frequencies,

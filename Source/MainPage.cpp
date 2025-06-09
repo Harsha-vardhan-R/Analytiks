@@ -72,6 +72,16 @@ void MainPage::paint(juce::Graphics& g)
     g.fillRect(leftPaddingRectangle);
     g.fillRect(rightPaddingRectangle);
 
+    // bordering
+    g.setColour(juce::Colours::white.withAlpha(0.2f));
+    auto ribbontop = ribbon.removeFromTop(1);
+    g.fillRect(ribbontop.reduced(paddingInPixels, 0.0));
+    g.fillRect(topPaddedRectangle.removeFromBottom(1.0).reduced(paddingInPixels, 0.0));
+    g.fillRect(leftPaddingRectangle.removeFromRight(1.0));
+    g.fillRect(rightPaddingRectangle.removeFromLeft(1.0));
+
+    g.setColour(accentColour);
+
     float v_sep_x = apvts_ref.getRawParameterValue("ui_sep_x")->load();
     float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
 
