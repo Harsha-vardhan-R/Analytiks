@@ -9,9 +9,17 @@ constexpr auto MAX_HEIGHT     = 3000;
 constexpr auto DEFAULT_WIDTH  = 1200;
 constexpr auto DEFAULT_HEIGHT = 800;
 
+#include "UI_Comp/Analyser/Analyser.h"
+#include "UI_Comp/Oscilloscope/Oscilloscope.h"
+#include "UI_Comp/Spectrogram/Spectrogram.h"
+#include "UI_Comp/Correlation/Correlation.h"
+
+using namespace juce;
+
+
 // Any parameter that cntrols more than one of the component(out of the 4)
 // is initiated and taken care of here, a refernce will be sent to the required component.
-class AnalytiksAudioProcessor  : public juce::AudioProcessor
+class AnalytiksAudioProcessor  : public AudioProcessor
 {
 public:
     //==============================================================================
@@ -25,7 +33,7 @@ public:
     // supported modes.
     // LR -> Left and right.
     // MS -> Mid and side.
-    const std::unordered_map<juce::String, int> channelMode {
+    const std::unordered_map<String, int> channelMode {
         { "L+R", 0 },
         { "L",   1 },
         { "R",   2 },
@@ -34,7 +42,7 @@ public:
     };
 
     // Named from matplotlib colour maps for easy reference.
-    const std::unordered_map<juce::String, int> colourMaps {
+    const std::unordered_map<String, int> colourMaps {
         { "Analytics",       0 },        
         { "Seismic",         1 },
         { "Cyberpunk",       2 }, // own
@@ -48,31 +56,31 @@ public:
         { "HSV",             9 }
     };
     
-    const std::unordered_map<juce::String, int> viewMode {
+    const std::unordered_map<String, int> viewMode {
         { "Scroll",     0 },
         { "Overview",   1 },
     };
 
-    const std::unordered_map<juce::String, int> viewOrientation {
+    const std::unordered_map<String, int> viewOrientation {
         { "Normal",     0 },
         { "Rotated",    1 },
     };
 
-    juce::AudioProcessorValueTreeState apvts;
-    juce::AudioProcessorValueTreeState::ParameterLayout create_parameter_layout();
+    AudioProcessorValueTreeState apvts;
+    AudioProcessorValueTreeState::ParameterLayout create_parameter_layout();
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
    #endif
 
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock (AudioBuffer<float>&, MidiBuffer&) override;
 
     //==============================================================================
-    juce::AudioProcessorEditor* createEditor() override;
+    AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
     //==============================================================================
-    const juce::String getName() const override;
+    const String getName() const override;
 
     bool acceptsMidi() const override;
     bool producesMidi() const override;
@@ -83,14 +91,22 @@ public:
     int getNumPrograms() override;
     int getCurrentProgram() override;
     void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
+    const String getProgramName (int index) override;
+    void changeProgramName (int index, const String& newName) override;
 
     //==============================================================================
-    void getStateInformation (juce::MemoryBlock& destData) override;
+    void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    //==============================================================================
+    std::array<juce::Component*, 4> getComponentArray();
+
 private:
+
+    std::unique_ptr<SpectrogramComponent> spectrogram_component;
+    std::unique_ptr<SpectrumAnalyserComponent> spectral_analyser_component;
+    std::unique_ptr<OscilloscopeComponent> oscilloscope_component;
+    std::unique_ptr<PhaseCorrelationAnalyserComponent> phase_correlation_component;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalytiksAudioProcessor)

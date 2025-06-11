@@ -11,13 +11,15 @@
 #include "MainPage.h"
 
 MainPage::MainPage(
-    juce::AudioProcessorValueTreeState& apvts_r,
+    AudioProcessorValueTreeState& apvts_r,
     std::function<void(bool)>& freeze_button_callback, 
-    std::function<void(bool)>& settings_button_callback
-): 
+    std::function<void(bool)>& settings_button_callback,
+    std::array<juce::Component*, 4> display_components
+)   : 
     freeze_toggle_button(freeze_icon, freeze_button_callback),
     settings_toggle_button(settings_icon, settings_button_callback),
     apvts_ref(apvts_r),
+    display_component_pointers(display_components),
     move_drag_comp(move_callback),
     volume_labels(typeface_regular, volume_seperator_labels),
     specrtum_volume_labels(typeface_regular, spectrum_volume_seperator_labels),
@@ -26,6 +28,11 @@ MainPage::MainPage(
 
     addAndMakeVisible(freeze_toggle_button);
     addAndMakeVisible(settings_toggle_button);
+
+    addAndMakeVisible(*display_component_pointers[0]);
+    addAndMakeVisible(*display_component_pointers[1]);
+    addAndMakeVisible(*display_component_pointers[2]);
+    addAndMakeVisible(*display_component_pointers[3]);
 
     addAndMakeVisible(move_drag_comp);
 
@@ -36,21 +43,21 @@ MainPage::MainPage(
     addAndMakeVisible(plugin_name_label);
     addAndMakeVisible(plugin_build_name_label);
     
-    plugin_name_label.setText("Analytiks", juce::dontSendNotification);
-    plugin_name_label.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
-    plugin_build_name_label.setText(JucePlugin_VersionString, juce::dontSendNotification);
-    plugin_build_name_label.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
-    plugin_build_name_label.setJustificationType(juce::Justification::bottomLeft);
+    plugin_name_label.setText("Analytiks", dontSendNotification);
+    plugin_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
+    plugin_build_name_label.setText(JucePlugin_VersionString, dontSendNotification);
+    plugin_build_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
+    plugin_build_name_label.setJustificationType(Justification::bottomLeft);
 
 }
 
-void MainPage::paint(juce::Graphics& g)
+void MainPage::paint(Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
+    g.fillAll(Colours::black);
     
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
 
-    juce::Colour accentColour = juce::Colour::fromHSV(hue, 0.75, 0.35, 1.0);
+    Colour accentColour = Colour::fromHSV(hue, 0.75, 0.35, 1.0);
 
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();
@@ -73,7 +80,7 @@ void MainPage::paint(juce::Graphics& g)
     g.fillRect(rightPaddingRectangle);
 
     // bordering
-    g.setColour(juce::Colours::white.withAlpha(0.2f));
+    g.setColour(Colours::white.withAlpha(0.2f));
     auto ribbontop = ribbon.removeFromTop(1);
     g.fillRect(ribbontop.reduced(paddingInPixels, 0.0));
     g.fillRect(topPaddedRectangle.removeFromBottom(1.0).reduced(paddingInPixels, 0.0));
@@ -97,13 +104,13 @@ void MainPage::paint(juce::Graphics& g)
     int horizontalSeperator_y =
         ((bounds.getHeight() - seperatorBarWidthInPixels) * h_sep_y) + bounds.getY();
 
-    auto verticalSeperator = juce::Rectangle<int>(
+    auto verticalSeperator = Rectangle<int>(
         verticalSeperator_x,
         bounds.getY(),
         seperatorBarWidthInPixels,
         bounds.getHeight()
     );
-    auto horizontalSeperator = juce::Rectangle<int>(
+    auto horizontalSeperator = Rectangle<int>(
         bounds.getX(),
         horizontalSeperator_y,
         bounds.getWidth(),
@@ -116,12 +123,12 @@ void MainPage::paint(juce::Graphics& g)
     //// draw a small triangle at the bottom,
     //// to let user know it can be resized.
     //auto bottom_right_point = ribbon.getBottomRight();
-    //juce::Path resize_triangle;
+    //Path resize_triangle;
     //resize_triangle.startNewSubPath(bottom_right_point.toFloat());
     //resize_triangle.lineTo(bottom_right_point.x, bottom_right_point.y - 10);
     //resize_triangle.lineTo(bottom_right_point.x-10, bottom_right_point.y);
     //resize_triangle.closeSubPath();
-    //g.setColour(juce::Colours::lightgrey);
+    //g.setColour(Colours::lightgrey);
     //g.fillPath(resize_triangle);
 }
 
@@ -192,7 +199,7 @@ void MainPage::resized()
     wid += cust_font_regular.getStringWidthFloat(plugin_build_name_label.getText());
     
     wid *= 1.2;
-    auto plugin_name_build_version_bounds = juce::Rectangle<int>(
+    auto plugin_name_build_version_bounds = Rectangle<int>(
         getWidth() - wid,
         ribbon.getY(),
         wid,
@@ -207,4 +214,10 @@ void MainPage::resized()
     float ribbon_button_padding = ribbon.getHeight() * 0.1;
     settings_toggle_button.setBounds(ribbon.removeFromLeft(ribbon.getHeight()).reduced(ribbon_button_padding));
     freeze_toggle_button.setBounds(ribbon.removeFromLeft(ribbon.getHeight()).reduced(ribbon_button_padding));
+
+    // TODO : the second orientation.
+    display_component_pointers[0]->setBounds(top_right_component);
+    display_component_pointers[1]->setBounds(top_left_component);
+    display_component_pointers[2]->setBounds(bottom_left_component);
+    display_component_pointers[3]->setBounds(bottom_right_component);
 }

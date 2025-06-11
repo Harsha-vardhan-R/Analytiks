@@ -32,13 +32,27 @@
           <FILE id="Pe4Ba1" name="Analyser.cpp" compile="1" resource="0" file="Source/UI_Comp/Analyser/Analyser.cpp"/>
           <FILE id="YwftMm" name="Analyser.h" compile="0" resource="0" file="Source/UI_Comp/Analyser/Analyser.h"/>
         </GROUP>
+        <GROUP id="{A5FA6CC2-D478-CCBD-8A82-CC8A39D0132B}" name="Correlation">
+          <FILE id="fRcQ6J" name="Correlation.cpp" compile="1" resource="0" file="Source/UI_Comp/Correlation/Correlation.cpp"/>
+          <FILE id="s4kzy9" name="Correlation.h" compile="0" resource="0" file="Source/UI_Comp/Correlation/Correlation.h"/>
+        </GROUP>
         <GROUP id="{FD455707-5E25-74BB-5F31-CB3509659846}" name="DFT">
           <FILE id="LSmjsP" name="DFT.cpp" compile="1" resource="0" file="Source/UI_Comp/DFT/DFT.cpp"/>
           <FILE id="WkWJwP" name="DFT.h" compile="0" resource="0" file="Source/UI_Comp/DFT/DFT.h"/>
         </GROUP>
-        <GROUP id="{FD994566-BAE3-33A0-998D-2AAA342215B4}" name="Spectrogram"/>
-        <GROUP id="{9CDF7521-E749-41BE-33FD-FC7664C380AC}" name="Stereo"/>
-        <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter"/>
+        <GROUP id="{893F406C-7F73-4873-FF55-A1CACBD60E30}" name="Oscilloscope">
+          <FILE id="bKhKiT" name="Oscilloscope.cpp" compile="1" resource="0"
+                file="Source/UI_Comp/Oscilloscope/Oscilloscope.cpp"/>
+          <FILE id="RRY7bE" name="Oscilloscope.h" compile="0" resource="0" file="Source/UI_Comp/Oscilloscope/Oscilloscope.h"/>
+        </GROUP>
+        <GROUP id="{FD994566-BAE3-33A0-998D-2AAA342215B4}" name="Spectrogram">
+          <FILE id="JKfQ1x" name="Spectrogram.cpp" compile="1" resource="0" file="Source/UI_Comp/Spectrogram/Spectrogram.cpp"/>
+          <FILE id="ingbK5" name="Spectrogram.h" compile="0" resource="0" file="Source/UI_Comp/Spectrogram/Spectrogram.h"/>
+        </GROUP>
+        <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter">
+          <FILE id="JM6BlA" name="Volume.cpp" compile="1" resource="0" file="Source/UI_Comp/VolumeMeter/Volume.cpp"/>
+          <FILE id="crKhol" name="Volume.h" compile="0" resource="0" file="Source/UI_Comp/VolumeMeter/Volume.h"/>
+        </GROUP>
         <GROUP id="{85AFD57E-8789-5543-F85C-F58C0E515664}" name="widgets">
           <FILE id="ekz1DS" name="drag_move.h" compile="0" resource="0" file="Source/UI_Comp/widgets/drag_move.h"/>
           <FILE id="LEdKl1" name="icon_button.h" compile="0" resource="0" file="Source/UI_Comp/widgets/icon_button.h"/>

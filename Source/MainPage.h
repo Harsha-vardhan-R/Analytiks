@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -9,17 +8,21 @@
 #include "UI_Comp/widgets/seperator_bar_dynamic_labeler.h"
 #include "UI_Comp/widgets/icon_button.h"
 
-class MainPage : public juce::Component
+using namespace juce;
+
+class MainPage : public Component
 {
 public:
 
     MainPage(
-        juce::AudioProcessorValueTreeState& apvts_r,
+        AudioProcessorValueTreeState& apvts_r,
         std::function<void(bool)>& freeze_button_callback,
-        std::function<void(bool)>& settings_button_callback
+        std::function<void(bool)>& settings_button_callback,
+        // In order : analyser, spectrogram, oscilloscope, phase correlation.
+        std::array<juce::Component*, 4> display_components
     );
 
-    void paint(juce::Graphics& g) override;
+    void paint(Graphics& g) override;
     void resized() override;
 
     // visible from the plugin editor.
@@ -27,33 +30,34 @@ public:
     iconButton settings_toggle_button;
 
 private:
-    juce::AudioProcessorValueTreeState& apvts_ref;
+    AudioProcessorValueTreeState& apvts_ref;
+    std::array<juce::Component*, 4> display_component_pointers;
 
     //==============================================================================
     //==============================================================================
-    juce::Typeface::Ptr typeface_regular{
-        juce::Typeface::createSystemTypefaceFor(
+    Typeface::Ptr typeface_regular{
+        Typeface::createSystemTypefaceFor(
             BinaryData::LatoRegular_ttf,
             BinaryData::LatoRegular_ttfSize)
     };
-    juce::Font cust_font_regular{ typeface_regular };
+    Font cust_font_regular{ typeface_regular };
 
-    juce::Typeface::Ptr typeface_bold{
-        juce::Typeface::createSystemTypefaceFor(
+    Typeface::Ptr typeface_bold{
+        Typeface::createSystemTypefaceFor(
             BinaryData::SpaceMonoBold_ttf,
             BinaryData::SpaceMonoBold_ttfSize)
     };
-    juce::Font cust_font_bold{ typeface_bold };
+    Font cust_font_bold{ typeface_bold };
 
-    std::unique_ptr<juce::Drawable> settings_icon = juce::Drawable::createFromImageData(
+    std::unique_ptr<Drawable> settings_icon = Drawable::createFromImageData(
         BinaryData::settings_icon_svg, BinaryData::settings_icon_svgSize);
-    std::unique_ptr<juce::Drawable> freeze_icon = juce::Drawable::createFromImageData(
+    std::unique_ptr<Drawable> freeze_icon = Drawable::createFromImageData(
         BinaryData::freeze_icon_svg, BinaryData::freeze_icon_svgSize);
     //==============================================================================
     //==============================================================================
 
-    std::function<void(juce::Point<int>)> move_callback =
-        [this](juce::Point<int> delta) {
+    std::function<void(Point<int>)> move_callback =
+        [this](Point<int> delta) {
 
         float width = getWidth();
         float height = getHeight();
@@ -87,14 +91,14 @@ private:
 
     MoveDragComponent move_drag_comp;
 
-    const std::vector<std::vector<juce::String>> volume_seperator_labels{
+    const std::vector<std::vector<String>> volume_seperator_labels{
         {
             { "0", "", "-20", "", "-40", "", "-60", " - ", "-60", "", "-40", "", "-20", "", "0"},
             { "0", "-10", "-20", "-30", "-40", "-50", "-60", " - ", "-60", "-50", "-40", "-30", "-20", "-10", "0"},
         }
     };
 
-    const std::vector<std::vector<juce::String>> spectrum_volume_seperator_labels{
+    const std::vector<std::vector<String>> spectrum_volume_seperator_labels{
         {
             { "", "-60", "", "", "", "-20", "", ""},
             { "", "-60", "", "-40", "", "-20", "", "0"},
@@ -106,8 +110,8 @@ private:
     SeperatorBarLabeler specrtum_volume_labels;
     LogSeperatorBarLabeler spectrum_frequency_labels;
 
-    juce::Label plugin_name_label;
-    juce::Label plugin_build_name_label;
+    Label plugin_name_label;
+    Label plugin_build_name_label;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainPage)
 };

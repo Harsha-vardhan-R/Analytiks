@@ -8,14 +8,19 @@ AnalytiksAudioProcessor::AnalytiksAudioProcessor()
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                       .withInput  ("Input",  AudioChannelSet::stereo(), true)
                       #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Output", AudioChannelSet::stereo(), true)
                      #endif
                        ),
 #endif
         apvts(*this, nullptr, "PARAMETERS", create_parameter_layout())
 {
+
+    spectral_analyser_component = std::make_unique<SpectrumAnalyserComponent>(apvts);
+    spectrogram_component = std::make_unique<SpectrogramComponent>(apvts);
+    oscilloscope_component = std::make_unique<OscilloscopeComponent>(apvts);
+    phase_correlation_component = std::make_unique<PhaseCorrelationAnalyserComponent>(apvts);
 }
 
 AnalytiksAudioProcessor::~AnalytiksAudioProcessor()
@@ -23,7 +28,7 @@ AnalytiksAudioProcessor::~AnalytiksAudioProcessor()
 }
 
 //==============================================================================
-const juce::String AnalytiksAudioProcessor::getName() const
+const String AnalytiksAudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
@@ -75,12 +80,12 @@ void AnalytiksAudioProcessor::setCurrentProgram (int index)
 {
 }
 
-const juce::String AnalytiksAudioProcessor::getProgramName (int index)
+const String AnalytiksAudioProcessor::getProgramName (int index)
 {
     return {};
 }
 
-void AnalytiksAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void AnalytiksAudioProcessor::changeProgramName (int index, const String& newName)
 {
 }
 
@@ -97,49 +102,49 @@ void AnalytiksAudioProcessor::releaseResources()
     // spare memory, etc.
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_parameter_layout()
+AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_parameter_layout()
 {
-    auto layout = juce::AudioProcessorValueTreeState::ParameterLayout();
+    auto layout = AudioProcessorValueTreeState::ParameterLayout();
 
-    // NOTE : juce::AudioProcessorParameter::otherMeter makes them non automatable.
-    juce::AudioParameterFloatAttributes float_param_attributes = 
-        juce::AudioParameterFloatAttributes().withAutomatable(false);
-    juce::AudioParameterIntAttributes int_param_attributes = 
-        juce::AudioParameterIntAttributes().withAutomatable(false);
-    juce::AudioParameterBoolAttributes bool_param_attributes = 
-        juce::AudioParameterBoolAttributes().withAutomatable(false);
+    // NOTE : AudioProcessorParameter::otherMeter makes them non automatable.
+    AudioParameterFloatAttributes float_param_attributes = 
+        AudioParameterFloatAttributes().withAutomatable(false);
+    AudioParameterIntAttributes int_param_attributes = 
+        AudioParameterIntAttributes().withAutomatable(false);
+    AudioParameterBoolAttributes bool_param_attributes = 
+        AudioParameterBoolAttributes().withAutomatable(false);
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
-    layout.add(std::make_unique<juce::AudioParameterFloat>( 
+    layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_sep_x",   
         "UI Seperator X", 
-        juce::NormalisableRange<float>(0.0, 1.0), 
+        NormalisableRange<float>(0.0, 1.0), 
         0.75, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>( 
+    layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_sep_y",   
         "UI Seperator Y", 
-        juce::NormalisableRange<float>(0.0, 1.0), 
+        NormalisableRange<float>(0.0, 1.0), 
         0.6,  
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>( 
+    layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_width",   
         "Plugin Width",   
-        juce::NormalisableRange<float>(MIN_WIDTH,  MAX_WIDTH),  
+        NormalisableRange<float>(MIN_WIDTH,  MAX_WIDTH),  
         DEFAULT_WIDTH, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>( 
+    layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_height",  
         "Plugin Height",  
-        juce::NormalisableRange<float>(MIN_HEIGHT, MAX_HEIGHT), 
+        NormalisableRange<float>(MIN_HEIGHT, MAX_HEIGHT), 
         DEFAULT_HEIGHT, 
         float_param_attributes));
     // UI Accent Hue colour.
-    layout.add(std::make_unique<juce::AudioParameterFloat>( 
+    layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_acc_hue",   
         "UI Accent Hue", 
-        juce::NormalisableRange<float>(0.0, 1.0),    
+        NormalisableRange<float>(0.0, 1.0),    
         0.9, 
         float_param_attributes));
 
@@ -147,28 +152,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // gobal parameters, parameters that affect more than one of the 4 components.
-    layout.add(std::make_unique<juce::AudioParameterInt>( 
+    layout.add(std::make_unique<AudioParameterInt>( 
         "gb_clrmap",  
         "Colourmap",        
         0, 
         colourMaps.size() - 1,      
         colourMaps.at("Analytics"), 
         int_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterInt>( 
+    layout.add(std::make_unique<AudioParameterInt>( 
         "gb_chnl",    
         "Channel",          
         0, 
         channelMode.size() - 1,     
         channelMode.at("L+R"), 
         int_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterInt>( 
+    layout.add(std::make_unique<AudioParameterInt>( 
         "gb_vw_mde",  
         "View Mode",        
         0, 
         viewMode.size() - 1,        
         viewMode.at("Scroll"), 
         int_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterInt>( 
+    layout.add(std::make_unique<AudioParameterInt>( 
         "gb_vw_ortn", 
         "View Orientation", 
         0, 
@@ -176,7 +181,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
         viewOrientation.at("Normal"), 
         int_param_attributes));
     // based on the channel selection, output is written.
-    layout.add(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<AudioParameterBool>(
         "gb_listen", 
         "Listen", 
         false, 
@@ -185,26 +190,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // SPECTRUM PARAMETERS.
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_min", 
         "Spectrum Frequncy range Min[Hz]", 
-        juce::NormalisableRange<float>(10.0, 20000.0), 
+        NormalisableRange<float>(10.0, 20000.0), 
         10.0, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_max", 
         "Spectrum Frequncy range Max[Hz]", 
-        juce::NormalisableRange<float>(10.0, 20000.0), 
+        NormalisableRange<float>(10.0, 20000.0), 
         20000.0, 
         float_param_attributes));
 
-    juce::AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
-        [](int value, int max_str_length) -> juce::String {
-            if (value > 255) return juce::String("Line");
-            else return juce::String(value);
+    AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
+        [](int value, int max_str_length) -> String {
+            if (value > 255) return String("Line");
+            else return String(value);
         });
     // number of bars to be shown, at exactly 256 we consider this a line graph, so max 255 bars.
-    layout.add(std::make_unique<juce::AudioParameterInt>(
+    layout.add(std::make_unique<AudioParameterInt>(
         "sp_num_brs", 
         "Number of Bars", 
         3, 
@@ -217,54 +222,54 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
     // with a one pole filter so that they do not jitter, making them hard to see.
     // use that 1-e^(-1/SR*time) one pole thingy.
     // both of the below params in ms.
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_bar_spd", 
         "Spectrum Bar Speed[ms]", 
-        juce::NormalisableRange<float>(1.0, 2000.0), 
+        NormalisableRange<float>(1.0, 2000.0), 
         100.0, 
         float_param_attributes));
     // when less than 0.5 ms the peak hold line will not be visible.
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_pek_hld", 
         "Spectrum peak hold[ms]", 
-        juce::NormalisableRange<float>(0.0, 2000.0), 
+        NormalisableRange<float>(0.0, 2000.0), 
         100.0, 
         float_param_attributes));
     // want highlighting ?
-    layout.add(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<AudioParameterBool>(
         "sp_high", 
         "Spectrum highlighting", 
         true, 
         bool_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_high_tm", 
         "Spectrum highlighting time[ms]", 
-        juce::NormalisableRange<float>(0.0, 2000.0), 
+        NormalisableRange<float>(0.0, 2000.0), 
         100.0, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sp_high_gt", 
         "Spectrum highlighting gate[dB]", 
-        juce::NormalisableRange<float>(-60.0, 0.0), 
+        NormalisableRange<float>(-60.0, 0.0), 
         -35.0, 
         float_param_attributes));
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // spectrogram parameters
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_bias", 
         "Spectrum colourmap bias", 
-        juce::NormalisableRange<float>(-1.0, 1.0), 
+        NormalisableRange<float>(-1.0, 1.0), 
         0.0, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_curv", 
         "Spectrum colourmap curve", 
-        juce::NormalisableRange<float>(-1.0, 1.0), 
+        NormalisableRange<float>(-1.0, 1.0), 
         0.0, 
         float_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<AudioParameterBool>(
         "sg_high_res", 
         "Non Blurred Spectrogram", 
         false, 
@@ -274,15 +279,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
     ////////////////////////////////////////////////////
     // oscilloscope, phase correlation stuff.
     // higlighting happens based on the volume calculated by the 
-    layout.add(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<AudioParameterBool>(
         "os_high", 
         "Oscilloscope highlighting", 
         true, 
         bool_param_attributes));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<AudioParameterFloat>(
         "v_rms_time", 
         "RMS window length[ms]", 
-        juce::NormalisableRange<float>(0.1, 500.0), 
+        NormalisableRange<float>(0.1, 500.0), 
         45.0, 
         float_param_attributes));
 
@@ -293,15 +298,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::cre
 bool AnalytiksAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
   #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
+    ignoreUnused (layouts);
     return true;
   #else
     // This is the place where you check if the layout is supported.
     // In this template code we only support mono or stereo.
     // Some plugin hosts, such as certain GarageBand versions, will only
     // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
         return false;
 
     // This checks if the input layout matches the output layout
@@ -315,9 +320,9 @@ bool AnalytiksAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 }
 #endif
 
-void AnalytiksAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals;
+    ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
@@ -350,13 +355,13 @@ bool AnalytiksAudioProcessor::hasEditor() const
     return true; // (change this to false if you choose to not supply an editor)
 }
 
-juce::AudioProcessorEditor* AnalytiksAudioProcessor::createEditor()
+AudioProcessorEditor* AnalytiksAudioProcessor::createEditor()
 {
     return new AnalytiksAudioProcessorEditor (*this, apvts);
 }
 
 //==============================================================================
-void AnalytiksAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void AnalytiksAudioProcessor::getStateInformation (MemoryBlock& destData)
 {
     if (auto state = apvts.copyState().createXml())
         copyXmlToBinary(*state, destData);
@@ -365,12 +370,24 @@ void AnalytiksAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 void AnalytiksAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xmlState = getXmlFromBinary(data, sizeInBytes))
-        apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+        apvts.replaceState(ValueTree::fromXml(*xmlState));
+}
+
+std::array<juce::Component*, 4> AnalytiksAudioProcessor::getComponentArray()
+{
+    auto arr = std::array<juce::Component*, 4>();
+
+    arr[0] = spectral_analyser_component.get();
+    arr[1] = spectrogram_component.get();
+    arr[2] = oscilloscope_component.get();
+    arr[3] = phase_correlation_component.get();
+
+    return arr;
 }
 
 //==============================================================================
 // This creates new instances of the plugin..
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new AnalytiksAudioProcessor();
 }

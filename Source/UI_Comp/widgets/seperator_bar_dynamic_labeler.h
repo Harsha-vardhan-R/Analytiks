@@ -2,12 +2,14 @@
 
 #include<juce_gui_basics/juce_gui_basics.h>
 
-class LogSeperatorBarLabeler : public juce::Component
+using namespace juce;
+
+class LogSeperatorBarLabeler : public Component
 {
 public:
 
 	LogSeperatorBarLabeler(
-		juce::Typeface::Ptr font_typeface
+		Typeface::Ptr font_typeface
 	) : CustomFont(font_typeface)
 	{
 		setOpaque(false);
@@ -62,7 +64,7 @@ public:
 		return value;
 	}
 
-	void paint(juce::Graphics& g) override
+	void paint(Graphics& g) override
 	{
 		// Decide on how many text labels we are going to use.
 		// do not worry it is never going to be a square.
@@ -70,7 +72,7 @@ public:
 		float smaller_dim_val = std::min<int>(getWidth(), getHeight());
 
 
-		juce::Font custom_font(CustomFont);
+		Font custom_font(CustomFont);
 		g.setFont(custom_font);
 		float fnt_height = textHeightFraction * smaller_dim_val;
 		g.setFont(fnt_height);
@@ -131,16 +133,16 @@ public:
 					}
 				}
 
-				g.setColour(juce::Colours::lightgrey);
+				g.setColour(Colours::lightgrey);
 				
 				if (rem_trail == 1)
-					g.setColour(juce::Colours::white);
+					g.setColour(Colours::white);
 
 				float logd_val = linToLog(freq_val);
 
 				// see where this lies in our range.
 				auto offset =
-					juce::jmap<float>(
+					jmap<float>(
 						logd_val,
 						logd_min,
 						logd_max,
@@ -150,7 +152,7 @@ public:
 				// but we  want inverse of this as the order is small at the bottom.
 				auto text_y = getHeight() - offset;
 
-				juce::Rectangle<int> text_bounds(
+				Rectangle<int> text_bounds(
 					3.0,
 					text_y-TextWidthPixels,
 					getWidth(),
@@ -159,11 +161,11 @@ public:
 
 				g.drawText(
 					
-					juce::String((freq_val > 999) ? freq_val/1000 : freq_val) +
+					String((freq_val > 999) ? freq_val/1000 : freq_val) +
 					((freq_val > 999) ? "K" : ""),
 
 					text_bounds,
-					juce::Justification::centredLeft
+					Justification::centredLeft
 				);
 			}
 		}
@@ -174,7 +176,7 @@ public:
 	{
 	}
 
-	void setNewRange(juce::Range<float>& rng)
+	void setNewRange(Range<float>& rng)
 	{
 		min_val = rng.getStart();
 		max_val = rng.getEnd();
@@ -183,7 +185,7 @@ public:
 	}
 
 private:
-	juce::Typeface::Ptr CustomFont;
+	Typeface::Ptr CustomFont;
 
 	float textHeightFraction = 0.55;
 

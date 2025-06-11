@@ -5,29 +5,31 @@
 
 #include <BinaryData.h>
 
+using namespace juce;
+
 // The move kind of thing on the seperators that is used to resize different
 // components.
 class MoveDragComponent : 
-	public juce::Component
+	public Component
 {
 public:
 
-	MoveDragComponent(std::function<void(juce::Point<int>)> move_callback)
+	MoveDragComponent(std::function<void(Point<int>)> move_callback)
 		: move_delta_callback(move_callback)
 	{
 		setOpaque(false);
 	}
 
-	void paint(juce::Graphics& g) override 
+	void paint(Graphics& g) override 
 	{
-		if (isMouseButtonDown()) g.setColour(juce::Colours::darkgrey);
-		else g.setColour(juce::Colours::grey);
+		if (isMouseButtonDown()) g.setColour(Colours::darkgrey);
+		else g.setColour(Colours::grey);
 		
 		g.drawRect(g.getClipBounds(), 1.0);
 		
-		if (isMouseOver()) g.setColour(juce::Colours::lightgrey);
-		else if (isMouseButtonDown()) g.setColour(juce::Colours::white);
-		else g.setColour(juce::Colours::grey);
+		if (isMouseOver()) g.setColour(Colours::lightgrey);
+		else if (isMouseButtonDown()) g.setColour(Colours::white);
+		else g.setColour(Colours::grey);
 
 		auto bounds = g.getClipBounds().reduced(3);
 
@@ -35,7 +37,7 @@ public:
 
 		auto svgBounds = svgDrawableDull->getDrawableBounds();
 
-		juce::AffineTransform transform = juce::AffineTransform::fromTargetPoints(
+		AffineTransform transform = AffineTransform::fromTargetPoints(
 			svgBounds.getTopLeft(), bounds.getTopLeft().toFloat(),
 			svgBounds.getTopRight(), bounds.getTopRight().toFloat(),
 			svgBounds.getBottomLeft(), bounds.getBottomLeft().toFloat()
@@ -49,29 +51,29 @@ public:
 
 	void resized() override {}
 
-	void mouseEnter(const juce::MouseEvent& event) override 
+	void mouseEnter(const MouseEvent& event) override 
 	{
 		repaint();
 	}
-	void mouseExit(const juce::MouseEvent& event) override 
+	void mouseExit(const MouseEvent& event) override 
 	{
 		repaint();
 	}
-	void mouseUp(const juce::MouseEvent& event) override
+	void mouseUp(const MouseEvent& event) override
 	{
-		juce::Desktop::setMousePosition(
+		Desktop::setMousePosition(
 			getScreenBounds().getCentre()
 		);
-		setMouseCursor(juce::MouseCursor::NormalCursor);
+		setMouseCursor(MouseCursor::NormalCursor);
 		repaint();
 	}
-	void mouseDown(const juce::MouseEvent& event) override
+	void mouseDown(const MouseEvent& event) override
 	{
 		mousePrevPosition = event.getScreenPosition();
-		setMouseCursor(juce::MouseCursor::NoCursor);
+		setMouseCursor(MouseCursor::NoCursor);
 		repaint();
 	}
-	void mouseDrag(const juce::MouseEvent& event) override
+	void mouseDrag(const MouseEvent& event) override
 	{
 		auto currentPos = event.getScreenPosition();
 		auto delta = currentPos - mousePrevPosition;
@@ -84,16 +86,16 @@ public:
 	}
 
 private:
-	std::function<void(juce::Point<int>)> move_delta_callback;
+	std::function<void(Point<int>)> move_delta_callback;
 
 	// difference between these two is sent to the 
 	// parent, it takes the required actions.
 
-	juce::Point<int> mousePrevPosition;
+	Point<int> mousePrevPosition;
 
-	std::unique_ptr<juce::Drawable> svgDrawableDull = juce::Drawable::createFromImageData(
+	std::unique_ptr<Drawable> svgDrawableDull = Drawable::createFromImageData(
 		BinaryData::move_svg_dull_svg, BinaryData::move_svg_dull_svgSize);
-	std::unique_ptr<juce::Drawable> svgDrawableBright = juce::Drawable::createFromImageData(
+	std::unique_ptr<Drawable> svgDrawableBright = Drawable::createFromImageData(
 		BinaryData::move_svg_bright_svg, BinaryData::move_svg_bright_svgSize);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MoveDragComponent);

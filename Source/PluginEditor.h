@@ -6,17 +6,19 @@
 
 #include "UI_Comp/widgets/settingsPage.h"
 
+using namespace juce;
+
 class AnalytiksAudioProcessorEditor  : 
-    public juce::AudioProcessorEditor,
-    public juce::AudioProcessorParameter::Listener
+    public AudioProcessorEditor,
+    public AudioProcessorParameter::Listener
 {
 public:
     AnalytiksAudioProcessorEditor (
         AnalytiksAudioProcessor&,
-        juce::AudioProcessorValueTreeState& apvts_ref);
+        AudioProcessorValueTreeState& apvts_ref);
     ~AnalytiksAudioProcessorEditor() override;
 
-    void paint (juce::Graphics&) override;
+    void paint (Graphics&) override;
     void resized() override;
 
     void parameterValueChanged(int param_index, float new_value) override;

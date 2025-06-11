@@ -5,12 +5,12 @@
 //==============================================================================
 AnalytiksAudioProcessorEditor::AnalytiksAudioProcessorEditor(
     AnalytiksAudioProcessor& p,
-    juce::AudioProcessorValueTreeState& apvts_ref
+    AudioProcessorValueTreeState& apvts_ref
 )
     : 
     AudioProcessorEditor(p),
     audioProcessor(p),
-    mainUIComponent(apvts_ref, freeze_button_callback, settings_button_callback),
+    mainUIComponent(apvts_ref, freeze_button_callback, settings_button_callback, p.getComponentArray()),
     settings_page_component(apvts_ref)
 {
     setOpaque(true);
@@ -39,9 +39,9 @@ AnalytiksAudioProcessorEditor::~AnalytiksAudioProcessorEditor()
 }
 
 //==============================================================================
-void AnalytiksAudioProcessorEditor::paint (juce::Graphics& g)
+void AnalytiksAudioProcessorEditor::paint (Graphics& g)
 {
-    g.fillAll(juce::Colours::white);
+    g.fillAll(Colours::white);
 }
 
 void AnalytiksAudioProcessorEditor::resized()
