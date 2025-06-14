@@ -1,13 +1,3 @@
-/*
-  ==============================================================================
-
-    MainPage.cpp
-    Created: 2 Jun 2025 9:36:55pm
-    Author:  iamde
-
-  ==============================================================================
-*/
-
 #include "MainPage.h"
 
 MainPage::MainPage(
@@ -49,6 +39,14 @@ MainPage::MainPage(
     plugin_build_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
     plugin_build_name_label.setJustificationType(Justification::bottomLeft);
 
+}
+
+MainPage::~MainPage()
+{
+    removeChildComponent(display_component_pointers[0]);
+    removeChildComponent(display_component_pointers[1]);
+    removeChildComponent(display_component_pointers[2]);
+    removeChildComponent(display_component_pointers[3]);
 }
 
 void MainPage::paint(Graphics& g)
@@ -120,16 +118,6 @@ void MainPage::paint(Graphics& g)
     g.fillRect(verticalSeperator);
     g.fillRect(horizontalSeperator);
 
-    //// draw a small triangle at the bottom,
-    //// to let user know it can be resized.
-    //auto bottom_right_point = ribbon.getBottomRight();
-    //Path resize_triangle;
-    //resize_triangle.startNewSubPath(bottom_right_point.toFloat());
-    //resize_triangle.lineTo(bottom_right_point.x, bottom_right_point.y - 10);
-    //resize_triangle.lineTo(bottom_right_point.x-10, bottom_right_point.y);
-    //resize_triangle.closeSubPath();
-    //g.setColour(Colours::lightgrey);
-    //g.fillPath(resize_triangle);
 }
 
 void MainPage::resized()

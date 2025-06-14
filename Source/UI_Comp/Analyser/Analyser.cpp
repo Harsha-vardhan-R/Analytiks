@@ -7,7 +7,7 @@ SpectrumAnalyserComponent::SpectrumAnalyserComponent(AudioProcessorValueTreeStat
 
 void SpectrumAnalyserComponent::paint(Graphics& g)
 {
-    g.fillAll(juce::Colours::brown);
+    g.fillAll(juce::Colours::black);
     g.setColour(juce::Colours::white);
     g.drawText("Spectrum", g.getClipBounds(), juce::Justification::centred);
 }

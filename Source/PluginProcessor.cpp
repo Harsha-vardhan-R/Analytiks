@@ -92,8 +92,10 @@ void AnalytiksAudioProcessor::changeProgramName (int index, const String& newNam
 //==============================================================================
 void AnalytiksAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    /*spectral_analyser_component->prepareToPlay(sampleRate, samplesPerBlock);
+    spectrogram_component->prepareToPlay(sampleRate, samplesPerBlock);
+    oscilloscope_component->prepareToPlay(sampleRate, samplesPerBlock);*/
+    phase_correlation_component->prepareToPlay(sampleRate, samplesPerBlock);
 }
 
 void AnalytiksAudioProcessor::releaseResources()
@@ -346,6 +348,15 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
         auto* channelData = buffer.getWritePointer (channel);
 
         // ..do something to the data...
+    }
+    // send data to the respective components.
+    phase_correlation_component->processBlock(buffer);
+
+    if (apvts.getRawParameterValue("gb_listen")->load())
+    {
+        buffer.setNotClear();
+        for (auto i = 0; i < totalNumOutputChannels; ++i)
+            buffer.clear(i, 0, buffer.getNumSamples());
     }
 }
 

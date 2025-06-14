@@ -15,7 +15,6 @@ public:
     {
         addAndMakeVisible(UI_accent_colour_slider);
         addAndMakeVisible(UI_accent_colour_slider_label);
-
         
         UI_accent_colour_slider.setSliderStyle(Slider::SliderStyle::LinearBar);
         UI_accent_colour_slider.setLookAndFeel(&styles);
@@ -39,7 +38,7 @@ public:
     {
         auto bounds = getLocalBounds();
         auto slider_height = 0.05 * bounds.getWidth();
-        auto label_height = 0.5 * slider_height;
+        auto label_height = slider_height;
         auto padding = 0.1 * slider_height;
         bounds.reduce(padding, padding);
 

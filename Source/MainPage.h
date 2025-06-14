@@ -21,6 +21,7 @@ public:
         // In order : analyser, spectrogram, oscilloscope, phase correlation.
         std::array<juce::Component*, 4> display_components
     );
+    ~MainPage() override;
 
     void paint(Graphics& g) override;
     void resized() override;

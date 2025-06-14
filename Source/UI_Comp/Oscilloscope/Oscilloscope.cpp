@@ -7,7 +7,7 @@ OscilloscopeComponent::OscilloscopeComponent(AudioProcessorValueTreeState& apvts
 
 void OscilloscopeComponent::paint(Graphics& g)
 {
-    g.fillAll(juce::Colours::green);
+    g.fillAll(juce::Colours::black);
     g.setColour(juce::Colours::white);
     g.drawText("Oscilloscope", g.getClipBounds(), juce::Justification::centred);
 }

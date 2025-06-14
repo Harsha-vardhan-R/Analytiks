@@ -7,7 +7,7 @@ SpectrogramComponent::SpectrogramComponent(AudioProcessorValueTreeState& apvts_r
 
 void SpectrogramComponent::paint(Graphics& g)
 {
-    g.fillAll(juce::Colours::blue);
+    g.fillAll(juce::Colours::black);
     g.setColour(juce::Colours::white);
     g.drawText("Spectrogram", g.getClipBounds(), juce::Justification::centred);
 }
