@@ -32,8 +32,9 @@ public:
     int window_length_samples = std::floor(44100.0 / (float)TARGET_TRIGGER_HZ);
     int sample_counter = 0;
 
-    // used to compute 
+    // used to compute both the volume and the cosine similarity.
     float sumLR, sumLL, sumRR;
+
 
     class CorrelationOpenGLComponent 
         : public Component,
@@ -64,6 +65,7 @@ public:
 
         GLfloat ring_buffer[RING_BUFFER_SIZE];
         std::atomic<int> ring_buf_read_index = 0;
+        std::atomic<bool> dirty = false;
 
         const char* vertexShader =
             R"(
@@ -136,10 +138,10 @@ public:
                     vec2 p0 = fetchPoint(i0);
                     vec2 p1 = fetchPoint(i1);
                     
-                    path += (float(i)/float(maxIndex)) * drawLine(p0, p1, uv, thicknessPx);
+                    path += (float(i)/float(maxIndex)) * drawLine(p0, p1, uv, thicknessPx+1);
                 }
 
-                vec3 path_colour = vec3(0.0, 0.0, path);
+                vec3 path_colour = vec3(path);
                 vec3 highlight_colour = vec3(highlight);
                 
                 gl_FragColor = vec4( highlight + path_colour, 1.0);
@@ -185,9 +187,39 @@ public:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CorrelationOpenGLComponent)
     };
 
+    // the bar thing below the graph that shows a smoothed 
+    // version of the amount of similarity between the signals.
+
+    class CorrelAmntComponent
+        :   public Component,
+            public Timer // to call the repaint method.
+    {
+    public:
+        CorrelAmntComponent();
+
+        void paint(Graphics& g) override;
+        void resized() override;
+
+        void timerCallback() override;
+
+        void newPoint(float y_val);
+
+        juce::Colour accent_colour = juce::Colours::red;
+    private:
+
+        const int refreshRate = 45;
+        const float alpha = 0.8;
+        std::atomic<float> correl_value = 1.0;
+
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CorrelAmntComponent)
+    };
+
 private:
     AudioProcessorValueTreeState& apvts_ref;
+
     CorrelationOpenGLComponent opengl_comp;
+    CorrelAmntComponent correl_amnt_comp;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhaseCorrelationAnalyserComponent)
 };

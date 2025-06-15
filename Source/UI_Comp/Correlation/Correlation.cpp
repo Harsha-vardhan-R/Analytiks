@@ -4,6 +4,7 @@ PhaseCorrelationAnalyserComponent::PhaseCorrelationAnalyserComponent(AudioProces
     : apvts_ref(apvts_reference)
 {
     addAndMakeVisible(opengl_comp);
+    addAndMakeVisible(correl_amnt_comp);
 }
 
 PhaseCorrelationAnalyserComponent::~PhaseCorrelationAnalyserComponent()
@@ -12,13 +13,17 @@ PhaseCorrelationAnalyserComponent::~PhaseCorrelationAnalyserComponent()
 
 void PhaseCorrelationAnalyserComponent::paint(Graphics& g)
 {
+    float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
+    Colour accentColour = Colour::fromHSV(hue, 0.75, 0.35, 1.0);
+
+    correl_amnt_comp.accent_colour = accentColour;
 }
 
 void PhaseCorrelationAnalyserComponent::resized()
 {
 
     float vol_bounds_width = getWidth() * 0.1;
-    float correl_amnt_bounds_height = getHeight() * 0.1;
+    float correl_amnt_bounds_height = getHeight() * 0.05;
     auto bounds = getLocalBounds();
 
     // TODO : this would be at the top if we used a 
@@ -45,6 +50,7 @@ void PhaseCorrelationAnalyserComponent::resized()
     }
 
     opengl_comp.setBounds(bounds.reduced(5));
+    correl_amnt_comp.setBounds(corell_amount_bounds);
 
 }
 
@@ -95,6 +101,7 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             x_comp = x_comp * 0.5 + 0.5;
 
             opengl_comp.newDataPoint(y_comp, x_comp);
+            correl_amnt_comp.newPoint(y_comp);
 
             sumLR = 0.0f;
             sumRR = 0.0f;
@@ -131,7 +138,7 @@ CorrelationOpenGLComponent()
     opengl_context.setContinuousRepainting(true);
 
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
-    else DBG("V SYNC Enabled");
+    else DBG("V SYNC ENABLED");
 
 }
 
@@ -155,9 +162,7 @@ newDataPoint(float x, float y)
 
     ring_buf_read_index.store(write_index);
 
-    DBG("Hello : " + String(ring_buf_read_index.load()));
-
-    //if (send_triggerRepaint) opengl_context.triggerRepaint();
+    dirty.store(true);
 }
 
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
@@ -239,14 +244,18 @@ void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::renderOpenGL
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_1D, dataTexture);
-    glTexSubImage1D(
-        GL_TEXTURE_1D, 
-        0, 
-        0,
-        RING_BUFFER_TEXEL_SIZE, // each texel is 2 floats.
-        GL_RG,
-        GL_FLOAT,
-        ring_buffer);
+    if (dirty.load())
+    {
+        glTexSubImage1D(
+            GL_TEXTURE_1D, 
+            0, 
+            0,
+            RING_BUFFER_TEXEL_SIZE, // each texel is 2 floats.
+            GL_RG,
+            GL_FLOAT,
+            ring_buffer);
+        dirty.store(false);
+    }
 
     // Bind and fill VBO
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -336,4 +345,68 @@ CorrelationOpenGLComponent::Uniforms::createUniform(
         return nullptr;
 
     return new OpenGLShaderProgram::Uniform(shader_program, uniform_name);
+}
+
+PhaseCorrelationAnalyserComponent::CorrelAmntComponent::CorrelAmntComponent()
+{
+    startTimerHz(refreshRate);
+}
+
+void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::paint(Graphics& g)
+{
+    g.fillAll(juce::Colours::black);
+
+    int padding = std::max(1.0, 0.1 * getHeight());
+
+    auto bounds = getLocalBounds();
+
+    auto bot = bounds.removeFromBottom(padding);
+    auto top = bounds.removeFromTop(padding);
+    auto left = bounds.removeFromLeft(padding);
+    auto right = bounds.removeFromRight(padding);
+
+    g.setColour(accent_colour);
+
+    g.fillRect(bot);
+    g.fillRect(top);
+    g.fillRect(left);
+    g.fillRect(right);
+
+    bounds.reduce(2, 2);
+
+    g.setColour(juce::Colours::lightgrey);
+    g.fillRect(
+        bounds.getX() + (bounds.getWidth() / 2) - 1,
+        bounds.getY(),
+        2,
+        bounds.getHeight()
+    );
+
+    g.setColour(juce::Colours::white);
+    int bar_width = 10;
+    g.fillRect(
+        bounds.getX() + (int)((float)(bounds.getWidth() - bar_width) * correl_value.load()),
+        bounds.getY(),
+        bar_width,
+        bounds.getHeight()
+    );
+
+}
+
+void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::resized()
+{
+}
+
+void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::timerCallback()
+{
+    repaint();
+}
+
+void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::newPoint(float y_val)
+{
+    // one pole smoothing filter.
+    float prev_value = correl_value.load();
+    float new_value = prev_value + (y_val - prev_value)*alpha;
+        
+    correl_value.store(new_value);
 }
