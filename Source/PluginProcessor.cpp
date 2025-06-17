@@ -100,8 +100,7 @@ void AnalytiksAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
 void AnalytiksAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
+    phase_correlation_component->zeroOutMeters();
 }
 
 AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_parameter_layout()
@@ -150,13 +149,12 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         0.9, 
         float_param_attributes));
 
-
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // gobal parameters, parameters that affect more than one of the 4 components.
     layout.add(std::make_unique<AudioParameterInt>( 
         "gb_clrmap",  
-        "Colourmap",        
+        "Colourmap",
         0, 
         colourMaps.size() - 1,      
         colourMaps.at("Analytics"), 

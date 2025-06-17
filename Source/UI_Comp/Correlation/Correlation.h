@@ -11,7 +11,8 @@ using namespace juce;
 #define RING_BUFFER_TEXEL_SIZE 128
 
 class PhaseCorrelationAnalyserComponent 
-    : public Component
+    :   public Component,
+        public AudioProcessorParameter::Listener
 {
 public:
 
@@ -23,18 +24,27 @@ public:
     void paint(Graphics& g) override;
     void resized() override;
 
+    void parameterValueChanged(int param_index, float new_value) override;
+    void parameterGestureChanged(int param_index, bool) override {};
+
     void prepareToPlay(float sample_rate, float block_size);
+    void zeroOutMeters();
 
     void processBlock(AudioBuffer<float>& buffer);
 
     // i.e for any sample rate.
     const int TARGET_TRIGGER_HZ = 120;
-    int window_length_samples = std::floor(44100.0 / (float)TARGET_TRIGGER_HZ);
+    std::atomic<float> rms_time = 0.018;
+    std::atomic<float> sample_rate = 44100.0;
+    std::atomic<int> window_length_samples = sample_rate * rms_time;
+    std::atomic<int> update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
     int sample_counter = 0;
 
-    // used to compute both the volume and the cosine similarity.
-    float sumLR, sumLL, sumRR;
-
+    // used to compute both the rms volume and the cosine similarity.
+    // a continuous sliding window is used based on the 
+    // window_length_samples and update_window_samples.
+    float sumLR = 0, sumLL = 0, sumRR = 0;
+    std::queue<float> SquareQueLR, SquareQueLL, SquareQueRR;
 
     class CorrelationOpenGLComponent 
         : public Component,
@@ -207,12 +217,38 @@ public:
         juce::Colour accent_colour = juce::Colours::red;
     private:
 
-        const int refreshRate = 45;
-        const float alpha = 0.8;
+        const int refreshRate = 60;
+        // smoothing while updating values.
+        const float alpha = 0.3;
         std::atomic<float> correl_value = 1.0;
 
-
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CorrelAmntComponent)
+    };
+
+    class VolumeMeterComponent
+        : public Component,
+        public Timer // to call the repaint method.
+    {
+    public:
+        VolumeMeterComponent();
+
+        void paint(Graphics& g) override;
+        void resized() override;
+
+        void timerCallback() override;
+
+        void newPoint(float l_vol, float r_vol);
+
+        juce::Colour accent_colour = juce::Colours::red;
+    private:
+
+        const int refreshRate = 60;
+        // smoothing while updating values.
+        const float alpha = 0.9;
+        std::atomic<float> l_rms_vol = 0.0;
+        std::atomic<float> r_rms_vol = 0.0;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VolumeMeterComponent)
     };
 
 private:
@@ -220,6 +256,7 @@ private:
 
     CorrelationOpenGLComponent opengl_comp;
     CorrelAmntComponent correl_amnt_comp;
+    VolumeMeterComponent volume_meter_comp;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhaseCorrelationAnalyserComponent)
 };

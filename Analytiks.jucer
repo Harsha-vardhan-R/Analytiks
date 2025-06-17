@@ -49,10 +49,6 @@
           <FILE id="JKfQ1x" name="Spectrogram.cpp" compile="1" resource="0" file="Source/UI_Comp/Spectrogram/Spectrogram.cpp"/>
           <FILE id="ingbK5" name="Spectrogram.h" compile="0" resource="0" file="Source/UI_Comp/Spectrogram/Spectrogram.h"/>
         </GROUP>
-        <GROUP id="{CB3873C1-43D0-613E-95F8-31EBAF7522DD}" name="VolumeMeter">
-          <FILE id="JM6BlA" name="Volume.cpp" compile="1" resource="0" file="Source/UI_Comp/VolumeMeter/Volume.cpp"/>
-          <FILE id="crKhol" name="Volume.h" compile="0" resource="0" file="Source/UI_Comp/VolumeMeter/Volume.h"/>
-        </GROUP>
         <GROUP id="{85AFD57E-8789-5543-F85C-F58C0E515664}" name="widgets">
           <FILE id="ekz1DS" name="drag_move.h" compile="0" resource="0" file="Source/UI_Comp/widgets/drag_move.h"/>
           <FILE id="LEdKl1" name="icon_button.h" compile="0" resource="0" file="Source/UI_Comp/widgets/icon_button.h"/>
