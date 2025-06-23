@@ -53,6 +53,8 @@ void PhaseCorrelationAnalyserComponent::resized()
         bounds.removeFromBottom(toRemove);
     }
 
+    bounds.removeFromTop(correl_amnt_bounds_height);
+
     opengl_comp.setBounds(bounds.reduced(5));
     correl_amnt_comp.setBounds(corell_amount_bounds);
     volume_meter_comp.setBounds(volume_bounds);
@@ -83,7 +85,7 @@ void PhaseCorrelationAnalyserComponent::prepareToPlay(float SR, float block_size
 
     while (SquareQueLR.size() > 0) SquareQueLR.pop();
     while (SquareQueLL.size() > 0) SquareQueLL.pop();
-    while (SquareQueRR.size() > 0) SquareQueLL.pop();
+    while (SquareQueRR.size() > 0) SquareQueRR.pop();
 }
 
 void PhaseCorrelationAnalyserComponent::zeroOutMeters()
@@ -169,6 +171,15 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
 
             constexpr float minRmsThreshold = 1e-6f;
 
+            // when vol too low it the balance sometimes goes crazy
+            // because it is normalised.
+           /* constexpr float fadeStartRms = 1e-3f;
+            float avgRms = 0.5f * (rmsL + rmsR);
+            float fade = 1.0f;
+            if (avgRms < fadeStartRms)
+                fade = std::clamp((avgRms - minRmsThreshold) / (fadeStartRms - minRmsThreshold), 0.0f, 1.0f);
+            float x_comp_faded = 0.5f + fade * (x_comp - 0.5f);*/
+
             if (rmsL < minRmsThreshold && rmsR < minRmsThreshold)
             {
                 opengl_comp.newDataPoint(0.5f, 0.5f);
@@ -178,7 +189,8 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             else
             {
                 // Normal processing
-                opengl_comp.newDataPoint(y_comp, x_comp);
+                opengl_comp.newDataPoint(left_sample * 0.5f + 0.5f, right_sample * 0.5f + 0.5f);
+
                 correl_amnt_comp.newPoint(y_comp);
                 volume_meter_comp.newPoint(rmsL * 1.414f, rmsR * 1.414f);
             }
@@ -220,6 +232,10 @@ PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
 newDataPoint(float x, float y)
 {
+
+    // not locking as the contention is very low and 
+    // cannot even be seen.
+
     int write_index = (ring_buf_read_index.load() + 1) % RING_BUFFER_TEXEL_SIZE;
 
     ring_buffer[2 * write_index] = x;
@@ -448,7 +464,7 @@ void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::paint(Graphics& g)
 
     g.setColour(juce::Colours::white);
 
-    int bar_width = std::max<int>(3, 0.033 * (float)bounds.getWidth());
+    int bar_width = std::max<int>(3, 0.02 * (float)bounds.getWidth());
 
     g.fillRect(
         bounds.getX() + (int)((float)(bounds.getWidth() - bar_width) * correl_value.load()),
@@ -482,7 +498,7 @@ PhaseCorrelationAnalyserComponent::VolumeMeterComponent::VolumeMeterComponent()
     startTimerHz(refreshRate);
 }
 
-float gain_to_db(float gain)
+static float gain_to_db(float gain)
 {
     gain = std::max<float>(gain, 1e-5);
     return 20.0 * log10f(gain);
@@ -492,10 +508,10 @@ const float one_seventh_part = 1.0 / 7.0;
 // remaps decible values such that they correspond with 
 // the meter readings on the seperator.
 // -INF|||-60|||-50|||-40|||-30|||-20|||-10|||0
-float custom_remap(float vol_dB)
+static float custom_remap(float vol_dB)
 {
     // 7 parts.
-    // 1st part -> -INFdb(here we use -100dB) to -60.
+    // 1st part -> -INFdb(here -INF == -100dB :/ ) to -60.
 
     vol_dB = std::clamp<float>(vol_dB, -100.0, 0.0);
 
@@ -542,8 +558,11 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
     auto left_bar_bounds = bounds.removeFromLeft(bounds.getWidth() / 2);
     auto right_bar_bounds = bounds;
 
-    left_bar_bounds.removeFromRight(1);
-    right_bar_bounds.removeFromLeft(1);
+    if (left_bar_bounds.getWidth() > 1 && right_bar_bounds.getWidth() > 1)
+    {
+        left_bar_bounds.removeFromRight(1);
+        right_bar_bounds.removeFromLeft(1);
+    }
 
     int half_remove_left  = ((1.0 - l_vol_frac) * bounds.getHeight()) / 2;
     int half_remove_right = ((1.0 - r_vol_frac) * bounds.getHeight()) / 2;
@@ -563,7 +582,7 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
     g.fillRect(
         padding + 2,
         bounds.getY() + (bounds.getHeight() / 2) - 1,
-        bounds.getWidth() * 2 + 2,
+        bounds.getWidth() * 2,
         2
     );
 }

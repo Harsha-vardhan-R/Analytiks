@@ -9,13 +9,14 @@ constexpr auto MAX_HEIGHT     = 3000;
 constexpr auto DEFAULT_WIDTH  = 1200;
 constexpr auto DEFAULT_HEIGHT = 800;
 
+#include "UI_Comp/DFT/DFT.h"
+
 #include "UI_Comp/Analyser/Analyser.h"
 #include "UI_Comp/Oscilloscope/Oscilloscope.h"
 #include "UI_Comp/Spectrogram/Spectrogram.h"
 #include "UI_Comp/Correlation/Correlation.h"
 
 using namespace juce;
-
 
 // Any parameter that cntrols more than one of the component(out of the 4)
 // is initiated and taken care of here, a refernce will be sent to the required component.
@@ -34,26 +35,25 @@ public:
     // LR -> Left and right.
     // MS -> Mid and side.
     const std::unordered_map<String, int> channelMode {
-        { "L+R", 0 },
+        { "L+R", 0 }, // same as mid.
         { "L",   1 },
         { "R",   2 },
-        { "S",   3 },
-        { "M",   4 }
+        { "S",   3 }
     };
 
     // Named from matplotlib colour maps for easy reference.
     const std::unordered_map<String, int> colourMaps {
-        { "Analytics",       0 },        
-        { "Seismic",         1 },
-        { "Cyberpunk",       2 }, // own
-        { "Plasma",          3 },
-        { "Viridis",         4 },
-        { "Blues",           5 },
-        { "Greens",          6 },
-        { "Oranges",         7 },
+        { "Inferno",         0 },
+        { "Plasma",          1 },
+        { "Viridis",         2 },
+        { "Coolwarm",        3 },
+        { "Rainbow",         4 },
+
+        { "Hot",             5 },
+        { "Copper",          6 },
+        { "Pink",            7 },
         { "Greys",           8 },
-        // NOTE : would be confusing, cause it is cyclic.(use a part of it ?)
-        { "HSV",             9 }
+        { "gnuplot2",        9 }
     };
     
     const std::unordered_map<String, int> viewMode {
@@ -100,13 +100,22 @@ public:
 
     //==============================================================================
     std::array<juce::Component*, 4> getComponentArray();
+    void setFreeze(bool);
 
 private:
 
+    std::vector<float> temp_buffer;
+
+    std::unique_ptr<PFFFT> fft_engine;
+    
     std::unique_ptr<SpectrogramComponent> spectrogram_component;
     std::unique_ptr<SpectrumAnalyserComponent> spectral_analyser_component;
     std::unique_ptr<OscilloscopeComponent> oscilloscope_component;
     std::unique_ptr<PhaseCorrelationAnalyserComponent> phase_correlation_component;
+
+    std::function<void(float*, int)> new_fft_frame_callback;
+
+    std::atomic<bool> freeze = false;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalytiksAudioProcessor)

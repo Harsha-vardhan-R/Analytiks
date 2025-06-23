@@ -2,7 +2,6 @@
 #include "PluginEditor.h"
 
 
-//==============================================================================
 AnalytiksAudioProcessor::AnalytiksAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
@@ -16,11 +15,23 @@ AnalytiksAudioProcessor::AnalytiksAudioProcessor()
 #endif
         apvts(*this, nullptr, "PARAMETERS", create_parameter_layout())
 {
+    // max supported block size.
+    temp_buffer.resize(8192 * 2);
 
     spectral_analyser_component = std::make_unique<SpectrumAnalyserComponent>(apvts);
     spectrogram_component = std::make_unique<SpectrogramComponent>(apvts);
     oscilloscope_component = std::make_unique<OscilloscopeComponent>(apvts);
     phase_correlation_component = std::make_unique<PhaseCorrelationAnalyserComponent>(apvts);
+    fft_engine = std::make_unique<PFFFT>(apvts);
+
+    new_fft_frame_callback = [this](
+        float* data,
+        int num_bins) {
+            spectral_analyser_component->newDataPoint(data, num_bins);
+    };
+
+    fft_engine->setCallback(new_fft_frame_callback);
+
 }
 
 AnalytiksAudioProcessor::~AnalytiksAudioProcessor()
@@ -155,9 +166,9 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterInt>( 
         "gb_clrmap",  
         "Colourmap",
-        0, 
-        colourMaps.size() - 1,      
-        colourMaps.at("Analytics"), 
+        0,
+        colourMaps.size() - 1,
+        colourMaps.at("Inferno"), 
         int_param_attributes));
     layout.add(std::make_unique<AudioParameterInt>( 
         "gb_chnl",    
@@ -180,6 +191,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         viewOrientation.size() - 1, 
         viewOrientation.at("Normal"), 
         int_param_attributes));
+    layout.add(std::make_unique<AudioParameterInt>(
+        "gb_fft_ord",
+        "FFT Order",
+        9,
+        13,
+        11,
+        int_param_attributes));
     // based on the channel selection, output is written.
     layout.add(std::make_unique<AudioParameterBool>(
         "gb_listen", 
@@ -188,20 +206,25 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         bool_param_attributes));
 
     ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////
     // SPECTRUM PARAMETERS.
     layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_rng_min", 
-        "Spectrum Frequncy range Min[Hz]", 
-        NormalisableRange<float>(10.0, 20000.0), 
-        10.0, 
+        "sp_rng_min",
+        "Spectrum Frequncy range Min[Hz]",
+        NormalisableRange<float>(10.0, 20000.0),
+        10.0,
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_rng_max", 
-        "Spectrum Frequncy range Max[Hz]", 
+        "sp_rng_max",
+        "Spectrum Frequncy range Max[Hz]",
         NormalisableRange<float>(10.0, 20000.0), 
         20000.0, 
         float_param_attributes));
+    // add an accent colour to the spectrum analyser.
+    layout.add(std::make_unique<AudioParameterBool>(
+        "sp_accent",
+        "Colourise Spectrum",
+        false,
+        bool_param_attributes));
 
     AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
         [](int value, int max_str_length) -> String {
@@ -326,31 +349,53 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    int present_channel = apvts.getRawParameterValue("gb_chnl")->load();
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    const float* left_channel_data = buffer.getReadPointer(0);
+    const float* right_channel_data = buffer.getReadPointer(1);
+
+    int number_of_samples = buffer.getNumSamples();
+
+    // send data to the respective components, if they are not freezed.
+    if (!freeze.load())
     {
-        auto* channelData = buffer.getWritePointer (channel);
+        if (present_channel == 0)
+        {
+            for (int sample = 0; sample < number_of_samples; ++sample)
+            {
+                temp_buffer[sample] = (left_channel_data[sample] + right_channel_data[sample]) * 0.5;
+            }
+        }
+        else if (present_channel == 1)
+        {
+            for (int sample = 0; sample < number_of_samples; ++sample)
+            {
+                temp_buffer[sample] = left_channel_data[sample];
+            }
+        }
+        else if (present_channel == 2)
+        {
+            for (int sample = 0; sample < number_of_samples; ++sample)
+            {
+                temp_buffer[sample] = right_channel_data[sample];
+            }
+        }
+        else
+        {
+            for (int sample = 0; sample < number_of_samples; ++sample)
+            {
+                temp_buffer[sample] = (left_channel_data[sample] - right_channel_data[sample]) * 0.5;
+            }
+        }
+    
+        // the callbacks from this will update both the analyser and the spectrogram.
+        fft_engine->processBlock(temp_buffer.data(), number_of_samples);
 
-        // ..do something to the data...
+        // update the correlation meter and the oscilloscope here.
+        phase_correlation_component->processBlock(buffer);
     }
-    // send data to the respective components.
-    phase_correlation_component->processBlock(buffer);
 
-    if (apvts.getRawParameterValue("gb_listen")->load())
+    if (!apvts.getRawParameterValue("gb_listen")->load())
     {
         buffer.setNotClear();
         for (auto i = 0; i < totalNumOutputChannels; ++i)
@@ -392,6 +437,11 @@ std::array<juce::Component*, 4> AnalytiksAudioProcessor::getComponentArray()
     arr[3] = phase_correlation_component.get();
 
     return arr;
+}
+
+void AnalytiksAudioProcessor::setFreeze(bool freeze_val)
+{
+    freeze.store(freeze_val);
 }
 
 //==============================================================================

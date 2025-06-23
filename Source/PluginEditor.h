@@ -32,8 +32,8 @@ private:
     int settings_width_min = 200;
     int settings_width_max = 300;
 
-    std::function<void(bool)> freeze_button_callback = [](bool button_state) {
-        
+    std::function<void(bool)> freeze_button_callback = [this](bool button_state) {
+        audioProcessor.setFreeze(button_state);
     };
 
     std::function<void(bool)> settings_button_callback = [this](bool button_state) {

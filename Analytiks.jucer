@@ -25,6 +25,7 @@
             file="resources/SpaceMono-Bold.ttf"/>
     </GROUP>
     <GROUP id="{3E72B7D3-DED0-E4FF-879E-DB692AAB006B}" name="Source">
+      <FILE id="jIxfFd" name="ColourMaps.h" compile="0" resource="0" file="Source/ColourMaps.h"/>
       <FILE id="MW5hNK" name="MainPage.cpp" compile="1" resource="0" file="Source/MainPage.cpp"/>
       <FILE id="Vr5U0q" name="MainPage.h" compile="0" resource="0" file="Source/MainPage.h"/>
       <GROUP id="{A02BA4A3-4F4F-6020-C61E-935B5F2AB59B}" name="UI_Comp">
