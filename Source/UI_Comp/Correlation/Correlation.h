@@ -226,7 +226,7 @@ void main() {
 
         const int refreshRate = 60;
         // smoothing while updating values.
-        const float alpha = 0.3;
+        const float alpha = 0.1;
         std::atomic<float> correl_value = 1.0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CorrelAmntComponent)
@@ -251,7 +251,7 @@ void main() {
 
         const int refreshRate = 60;
         // smoothing while updating values.
-        const float alpha = 0.9;
+        const float alpha = 0.5;
         std::atomic<float> l_rms_vol = 0.0;
         std::atomic<float> r_rms_vol = 0.0;
 

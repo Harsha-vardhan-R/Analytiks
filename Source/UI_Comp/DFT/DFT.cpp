@@ -98,6 +98,7 @@ void PFFFT::processBlock(float* input, int numSamples)
 
         if (frame_callback)
             frame_callback(amplitude_buffer.data(), num_bins);
+
     }
 }
 

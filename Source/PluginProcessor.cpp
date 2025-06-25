@@ -125,6 +125,8 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         AudioParameterIntAttributes().withAutomatable(false);
     AudioParameterBoolAttributes bool_param_attributes = 
         AudioParameterBoolAttributes().withAutomatable(false);
+    AudioParameterChoiceAttributes choice_param_attributes =
+        AudioParameterChoiceAttributes().withAutomatable(false);
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
@@ -163,41 +165,64 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // gobal parameters, parameters that affect more than one of the 4 components.
-    layout.add(std::make_unique<AudioParameterInt>( 
+    layout.add(std::make_unique<AudioParameterChoice>( 
         "gb_clrmap",  
         "Colourmap",
-        0,
-        colourMaps.size() - 1,
-        colourMaps.at("Inferno"), 
-        int_param_attributes));
-    layout.add(std::make_unique<AudioParameterInt>( 
+        StringArray(
+            "Inferno",
+            "Plasma",
+            "Viridis",
+            "Coolwarm",
+            "Rainbow",
+            "Hot",
+            "Copper",
+            "Pink",
+            "Greys",
+            "gnuplot2"
+        ),
+        colourMaps.at("Inferno"),
+        choice_param_attributes));
+    layout.add(std::make_unique<AudioParameterChoice>(
         "gb_chnl",    
         "Channel",          
-        0, 
-        channelMode.size() - 1,     
-        channelMode.at("L+R"), 
-        int_param_attributes));
-    layout.add(std::make_unique<AudioParameterInt>( 
-        "gb_vw_mde",  
-        "View Mode",        
-        0, 
-        viewMode.size() - 1,        
-        viewMode.at("Scroll"), 
-        int_param_attributes));
-    layout.add(std::make_unique<AudioParameterInt>( 
+        StringArray(
+            "L+R",
+            "L",
+            "R",
+            "S"
+        ),
+        channelMode.at("L+R"),
+        choice_param_attributes));
+    layout.add(std::make_unique<AudioParameterChoice>(
+        "gb_vw_mde",
+        "View Mode",
+        StringArray(
+            "Scroll",
+            "Overview"
+        ),
+        viewMode.at("Scroll"),
+        choice_param_attributes));
+    layout.add(std::make_unique<AudioParameterChoice>(
         "gb_vw_ortn", 
-        "View Orientation", 
-        0, 
-        viewOrientation.size() - 1, 
-        viewOrientation.at("Normal"), 
-        int_param_attributes));
-    layout.add(std::make_unique<AudioParameterInt>(
+        "View Orientation",
+        StringArray(
+            "Normal",
+            "Rotated"
+        ),
+        viewOrientation.at("Normal"),
+        choice_param_attributes));
+    layout.add(std::make_unique<AudioParameterChoice>(
         "gb_fft_ord",
         "FFT Order",
-        9,
-        13,
-        11,
-        int_param_attributes));
+        StringArray(
+            "9 - 512",
+            "10 - 1024",
+            "11 - 2048",
+            "12 - 4098",
+            "13 - 8192"
+        ),
+        2,
+        choice_param_attributes));
     // based on the channel selection, output is written.
     layout.add(std::make_unique<AudioParameterBool>(
         "gb_listen", 
@@ -225,6 +250,29 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         "Colourise Spectrum",
         false,
         bool_param_attributes));
+
+    layout.add(std::make_unique<AudioParameterChoice>(
+        "sp_measure",
+        "History Window Bars",
+        StringArray(
+            "1/32",
+            "1/16",
+            "1/8",
+            "1/4",
+            "1/2",
+            "1",
+            "2",
+            "4"
+        ),
+        3,
+        choice_param_attributes));
+    layout.add(std::make_unique<AudioParameterInt>(
+        "sp_multiple",
+        "History Window Multiple",
+        1,
+        64,
+        16,
+        int_param_attributes));
 
     AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
         [](int value, int max_str_length) -> String {
@@ -283,7 +331,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_bias", 
         "Spectrum colourmap bias", 
-        NormalisableRange<float>(-1.0, 1.0), 
+        NormalisableRange<float>(0.0, 1.0), 
         0.0, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(

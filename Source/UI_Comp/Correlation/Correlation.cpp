@@ -66,16 +66,16 @@ void PhaseCorrelationAnalyserComponent::parameterValueChanged(int param_index, f
     float rms_T = apvts_ref.getRawParameterValue("v_rms_time")->load();
     rms_time = rms_T;
 
-    window_length_samples = sample_rate * rms_time;
-    update_window_samples = sample_rate / TARGET_TRIGGER_HZ;
+    window_length_samples = sample_rate * rms_time * 0.001;
+    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
 }
 
 void PhaseCorrelationAnalyserComponent::prepareToPlay(float SR, float block_size)
 {
     sample_rate = SR;
 
-    window_length_samples = sample_rate * rms_time;
-    update_window_samples = sample_rate / TARGET_TRIGGER_HZ;
+    window_length_samples = sample_rate * rms_time * 0.001;
+    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
 
     sample_counter = 0;
 
@@ -122,26 +122,28 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
         SquareQueLL.push(left_sample_squared);
         SquareQueRR.push(right_sample_squared);
 
-        while (SquareQueLR.size() > window_length_samples)
-        {
-            sumLR -= SquareQueLR.front();
-            SquareQueLR.pop();
-        }
-        while (SquareQueLL.size() > window_length_samples)
-        {
-            sumLL -= SquareQueLL.front();
-            SquareQueLL.pop();
-        }
-        while (SquareQueRR.size() > window_length_samples)
-        {
-            sumRR -= SquareQueRR.front();
-            SquareQueRR.pop();
-        }
 
         sample_counter += 1;
 
         if (sample_counter >= update_window_samples)
         {
+
+            while (SquareQueLR.size() > window_length_samples)
+            {
+                sumLR -= SquareQueLR.front();
+                SquareQueLR.pop();
+            }
+            while (SquareQueLL.size() > window_length_samples)
+            {
+                sumLL -= SquareQueLL.front();
+                SquareQueLL.pop();
+            }
+            while (SquareQueRR.size() > window_length_samples)
+            {
+                sumRR -= SquareQueRR.front();
+                SquareQueRR.pop();
+            }
+
             sample_counter = 0;
 
             sumLL = std::max(sumLL, 0.0f);
@@ -500,29 +502,18 @@ PhaseCorrelationAnalyserComponent::VolumeMeterComponent::VolumeMeterComponent()
 
 static float gain_to_db(float gain)
 {
-    gain = std::max<float>(gain, 1e-5);
+    gain = std::max<float>(gain, 1e-4);
     return 20.0 * log10f(gain);
 }
 
-const float one_seventh_part = 1.0 / 7.0;
-// remaps decible values such that they correspond with 
-// the meter readings on the seperator.
-// -INF|||-60|||-50|||-40|||-30|||-20|||-10|||0
 static float custom_remap(float vol_dB)
 {
     // 7 parts.
-    // 1st part -> -INFdb(here -INF == -100dB :/ ) to -60.
+    // 1st part -> -INFdb(here -INF == -80dB :/ ) to -60.
 
-    vol_dB = std::clamp<float>(vol_dB, -100.0, 0.0);
+    vol_dB = std::clamp<float>(vol_dB, -80.0, 0.0);
 
-    if (vol_dB < -60)
-    {
-        return jmap<float>(vol_dB, -100.0, -60.0, 0.0, one_seventh_part);
-    }
-    else
-    {
-        return jmap<float>(vol_dB, -60.0, 0.0, one_seventh_part, 1.0);
-    }
+    return jmap<float>(vol_dB, -80.0, 0.0, 0.0, 1.0);
 }
 
 void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)

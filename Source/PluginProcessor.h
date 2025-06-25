@@ -2,12 +2,12 @@
 
 #include <JuceHeader.h>
 
-constexpr auto MIN_WIDTH      = 600;
-constexpr auto MIN_HEIGHT     = 600;
+constexpr auto MIN_WIDTH      = 800;
+constexpr auto MIN_HEIGHT     = 800;
 constexpr auto MAX_WIDTH      = 4000;
 constexpr auto MAX_HEIGHT     = 3000;
 constexpr auto DEFAULT_WIDTH  = 1200;
-constexpr auto DEFAULT_HEIGHT = 800;
+constexpr auto DEFAULT_HEIGHT = 1000;
 
 #include "UI_Comp/DFT/DFT.h"
 
@@ -48,7 +48,6 @@ public:
         { "Viridis",         2 },
         { "Coolwarm",        3 },
         { "Rainbow",         4 },
-
         { "Hot",             5 },
         { "Copper",          6 },
         { "Pink",            7 },
