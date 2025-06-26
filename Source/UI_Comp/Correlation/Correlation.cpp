@@ -1,13 +1,18 @@
 #include "Correlation.h"
 
 PhaseCorrelationAnalyserComponent::PhaseCorrelationAnalyserComponent(AudioProcessorValueTreeState& apvts_reference)
-    : apvts_ref(apvts_reference)
+    :   apvts_ref(apvts_reference),
+        correl_amnt_comp(String("-1"), String("+1")),
+        balance_amnt_comp(String("L"), String("R"))
 {
     addAndMakeVisible(opengl_comp);
-    addAndMakeVisible(correl_amnt_comp);
     addAndMakeVisible(volume_meter_comp);
+    addAndMakeVisible(correl_amnt_comp);
+    addAndMakeVisible(balance_amnt_comp);
 
     apvts_ref.getParameter("v_rms_time")->addListener(this);
+
+    parameterValueChanged(0, 0.0);
 }
 
 PhaseCorrelationAnalyserComponent::~PhaseCorrelationAnalyserComponent()
@@ -21,19 +26,21 @@ void PhaseCorrelationAnalyserComponent::paint(Graphics& g)
 
     correl_amnt_comp.accent_colour = accentColour;
     volume_meter_comp.accent_colour = accentColour;
+    balance_amnt_comp.accent_colour = accentColour;
 }
 
 void PhaseCorrelationAnalyserComponent::resized()
 {
 
-    float vol_bounds_width = getWidth() * 0.05;
-    float correl_amnt_bounds_height = getHeight() * 0.05;
+    float vol_bounds_width = std::max<float>(getWidth() * 0.05, 11);
+    float correl_amnt_bounds_height = std::max<float>(getHeight() * 0.05, 10);
     auto bounds = getLocalBounds();
 
     // TODO : this would be at the top if we used a 
     // rotated orientation.
     auto volume_bounds = bounds.removeFromLeft(vol_bounds_width);
-    auto corell_amount_bounds = bounds.removeFromBottom(correl_amnt_bounds_height);
+    auto corell_amount_bounds = bounds.removeFromRight(correl_amnt_bounds_height);
+    auto balance_amount_bounds = bounds.removeFromBottom(correl_amnt_bounds_height);
 
     // Now select the biggest square that you can make out of the 
     // remaining bounds justified center.
@@ -57,6 +64,7 @@ void PhaseCorrelationAnalyserComponent::resized()
 
     opengl_comp.setBounds(bounds.reduced(5));
     correl_amnt_comp.setBounds(corell_amount_bounds);
+    balance_amnt_comp.setBounds(balance_amount_bounds);
     volume_meter_comp.setBounds(volume_bounds);
 
 }
@@ -97,6 +105,8 @@ void PhaseCorrelationAnalyserComponent::zeroOutMeters()
 
 void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
 {
+    ScopedNoDenormals noDenormals;
+
     float* left_channel = buffer.getWritePointer(0);
     float* right_channel = buffer.getWritePointer(1);
 
@@ -122,11 +132,11 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
         SquareQueLL.push(left_sample_squared);
         SquareQueRR.push(right_sample_squared);
 
-
         sample_counter += 1;
 
         if (sample_counter >= update_window_samples)
         {
+            sample_counter = 0;
 
             while (SquareQueLR.size() > window_length_samples)
             {
@@ -144,19 +154,18 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
                 SquareQueRR.pop();
             }
 
-            sample_counter = 0;
+            float denominator = std::sqrtf(
+                std::max<float>(sumLL, 0.0) * 
+                std::max<float>(sumRR, 0.0)
+            );
 
-            sumLL = std::max(sumLL, 0.0f);
-            sumRR = std::max(sumRR, 0.0f);
-
-            float denominator = std::sqrtf(sumLL * sumRR);
             if (denominator < 1e-10f || !std::isfinite(denominator))
                 denominator = 1e-10f;
 
-            float y_comp = static_cast<float>(sumLR / denominator);
+            float y_comp = static_cast<float>(std::max<float>(sumLR, 0.0) / denominator);
 
-            float rmsL = std::sqrtf(sumLL / (float)window_length_samples);
-            float rmsR = std::sqrtf(sumRR / (float)window_length_samples);
+            float rmsL = std::sqrtf(std::max<float>(sumLL, 0.0) / (float)window_length_samples);
+            float rmsR = std::sqrtf(std::max<float>(sumRR, 0.0) / (float)window_length_samples);
 
             if (!std::isfinite(rmsL) || rmsL < 0.0f) rmsL = 0.0f;
             if (!std::isfinite(rmsR) || rmsR < 0.0f) rmsR = 0.0f;
@@ -165,37 +174,16 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             if (rmsL + rmsR > 1e-10f)
                 x_comp = (rmsR - rmsL) / (rmsL + rmsR);
 
-            y_comp = y_comp * 0.5f + 0.5f;
             x_comp = x_comp * 0.5f + 0.5f;
 
             y_comp = std::clamp(y_comp, 0.0f, 1.0f);
             x_comp = std::clamp(x_comp, 0.0f, 1.0f);
 
-            constexpr float minRmsThreshold = 1e-6f;
-
-            // when vol too low it the balance sometimes goes crazy
-            // because it is normalised.
-           /* constexpr float fadeStartRms = 1e-3f;
-            float avgRms = 0.5f * (rmsL + rmsR);
-            float fade = 1.0f;
-            if (avgRms < fadeStartRms)
-                fade = std::clamp((avgRms - minRmsThreshold) / (fadeStartRms - minRmsThreshold), 0.0f, 1.0f);
-            float x_comp_faded = 0.5f + fade * (x_comp - 0.5f);*/
-
-            if (rmsL < minRmsThreshold && rmsR < minRmsThreshold)
-            {
-                opengl_comp.newDataPoint(0.5f, 0.5f);
-                correl_amnt_comp.newPoint(0.5f);
-                volume_meter_comp.newPoint(0.0f, 0.0f);
-            }
-            else
-            {
-                // Normal processing
-                opengl_comp.newDataPoint(left_sample * 0.5f + 0.5f, right_sample * 0.5f + 0.5f);
-
-                correl_amnt_comp.newPoint(y_comp);
-                volume_meter_comp.newPoint(rmsL * 1.414f, rmsR * 1.414f);
-            }
+            opengl_comp.newDataPoint(left_sample * 0.5f + 0.5f, right_sample * 0.5f + 0.5f);
+            correl_amnt_comp.newPoint(1.0-y_comp);
+            volume_meter_comp.newPoint(rmsL * 1.414f, rmsR * 1.414f);
+            balance_amnt_comp.newPoint(x_comp);
+            
         }
     }
 }
@@ -429,70 +417,144 @@ CorrelationOpenGLComponent::Uniforms::createUniform(
     return new OpenGLShaderProgram::Uniform(shader_program, uniform_name);
 }
 
-PhaseCorrelationAnalyserComponent::CorrelAmntComponent::CorrelAmntComponent()
+PhaseCorrelationAnalyserComponent::ValueMeterComponent::ValueMeterComponent
+(String low_value_str, String high_value_str)
+    :   low_val(low_value_str),
+        high_val(high_value_str)
 {
     startTimerHz(refreshRate);
 }
 
-void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::paint(Graphics& g)
+void PhaseCorrelationAnalyserComponent::ValueMeterComponent::paint(Graphics& g)
 {
     g.fillAll(juce::Colours::black);
-
-    int padding = std::max(1.0, 0.1 * getHeight());
-
     auto bounds = getLocalBounds();
 
-    auto bot = bounds.removeFromBottom(padding);
-    auto top = bounds.removeFromTop(padding);
-    auto left = bounds.removeFromLeft(padding);
-    auto right = bounds.removeFromRight(padding);
+    if (bounds.getWidth() > bounds.getHeight())
+    {
+        int padding = std::max(1.0, 0.1 * getHeight());
 
-    g.setColour(accent_colour);
+        auto bot = bounds.removeFromBottom(padding);
+        auto top = bounds.removeFromTop(padding);
+        auto left = bounds.removeFromLeft(padding);
+        auto right = bounds.removeFromRight(padding);
 
-    g.fillRect(bot);
-    g.fillRect(top);
-    g.fillRect(left);
-    g.fillRect(right);
+        g.setColour(accent_colour);
 
-    bounds.reduce(2, 2);
+        g.fillRect(bot);
+        g.fillRect(top);
+        g.fillRect(left);
+        g.fillRect(right);
 
-    g.setColour(juce::Colours::darkgrey);
-    g.fillRect(
-        bounds.getX() + (bounds.getWidth() / 2) - 1,
-        bounds.getY(),
-        2,
-        bounds.getHeight()
-    );
+        bounds.reduce(2, 2);
 
-    g.setColour(juce::Colours::white);
+        g.setColour(juce::Colours::darkgrey);
 
-    int bar_width = std::max<int>(3, 0.02 * (float)bounds.getWidth());
+        g.fillRect(
+            bounds.getX() + (bounds.getWidth() / 2) - 1,
+            bounds.getY(),
+            2,
+            bounds.getHeight()
+        );
 
-    g.fillRect(
-        bounds.getX() + (int)((float)(bounds.getWidth() - bar_width) * correl_value.load()),
-        bounds.getY(),
-        bar_width,
-        bounds.getHeight()
-    );
+        g.setColour(juce::Colours::white);
+
+        int bar_width = std::max<int>(3, 0.02 * (float)bounds.getWidth());
+
+        g.fillRect(
+            bounds.getX() + (int)((float)(bounds.getWidth() - bar_width) * pres_value.load()),
+            bounds.getY(),
+            bar_width,
+            bounds.getHeight()
+        );
+    
+        g.setColour(Colours::darkgrey);
+
+        g.drawText(
+            low_val,
+            bounds.removeFromLeft(bounds.getHeight()),
+            Justification::centred
+        );
+
+        g.drawText(
+            high_val,
+            bounds.removeFromRight(bounds.getHeight()),
+            Justification::centred
+        );
+
+    }
+    else
+    {
+        int padding = std::max(1.0, 0.1 * getWidth());
+
+        auto bot = bounds.removeFromBottom(padding);
+        auto top = bounds.removeFromTop(padding);
+        auto left = bounds.removeFromLeft(padding);
+        auto right = bounds.removeFromRight(padding);
+
+        g.setColour(accent_colour);
+
+        g.fillRect(bot);
+        g.fillRect(top);
+        g.fillRect(left);
+        g.fillRect(right);
+
+        bounds.reduce(2, 2);
+
+        g.setColour(juce::Colours::darkgrey);
+
+        g.fillRect(
+            bounds.getX(),
+            bounds.getY() + (bounds.getHeight() / 2) - 1,
+            bounds.getWidth(),
+            2
+        );
+
+        g.setColour(juce::Colours::white);
+
+        int bar_width = std::max<int>(3, 0.02 * (float)bounds.getHeight());
+
+        g.fillRect(
+            bounds.getX(),
+            bounds.getY() + (int)((float)(bounds.getHeight() - bar_width) * pres_value.load()),
+            bounds.getWidth(),
+            bar_width
+        );
+
+        g.setColour(Colours::darkgrey);
+
+        g.drawText(
+            low_val,
+            bounds.removeFromBottom(bounds.getWidth()),
+            Justification::centred
+        );
+
+        g.drawText(
+            high_val,
+            bounds.removeFromTop(bounds.getWidth()),
+            Justification::centred
+        );
+
+    }
 
 }
 
-void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::resized()
+void PhaseCorrelationAnalyserComponent::ValueMeterComponent::resized()
 {
 }
 
-void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::timerCallback()
+void PhaseCorrelationAnalyserComponent::ValueMeterComponent::timerCallback()
 {
     repaint();
 }
 
-void PhaseCorrelationAnalyserComponent::CorrelAmntComponent::newPoint(float y_val)
+void PhaseCorrelationAnalyserComponent::ValueMeterComponent::newPoint(float y_val)
 {
     // one pole smoothing filter.
-    float prev_value = correl_value.load();
+    float prev_value = pres_value.load();
     float new_value = prev_value + (y_val - prev_value)*alpha;
         
-    correl_value.store(new_value);
+    pres_value.store(new_value);
 }
 
 PhaseCorrelationAnalyserComponent::VolumeMeterComponent::VolumeMeterComponent()

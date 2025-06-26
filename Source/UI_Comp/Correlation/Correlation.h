@@ -207,12 +207,12 @@ void main() {
     // the bar thing below the graph that shows a smoothed 
     // version of the amount of similarity between the signals.
 
-    class CorrelAmntComponent
+    class ValueMeterComponent
         :   public Component,
             public Timer // to call the repaint method.
     {
     public:
-        CorrelAmntComponent();
+        ValueMeterComponent(String low_value_str, String high_value_str);
 
         void paint(Graphics& g) override;
         void resized() override;
@@ -224,12 +224,14 @@ void main() {
         juce::Colour accent_colour = juce::Colours::red;
     private:
 
+        String low_val, high_val;
+
         const int refreshRate = 60;
         // smoothing while updating values.
         const float alpha = 0.1;
-        std::atomic<float> correl_value = 1.0;
+        std::atomic<float> pres_value = 1.0;
 
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CorrelAmntComponent)
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValueMeterComponent)
     };
 
     class VolumeMeterComponent
@@ -251,7 +253,7 @@ void main() {
 
         const int refreshRate = 60;
         // smoothing while updating values.
-        const float alpha = 0.5;
+        const float alpha = 0.9;
         std::atomic<float> l_rms_vol = 0.0;
         std::atomic<float> r_rms_vol = 0.0;
 
@@ -262,7 +264,10 @@ private:
     AudioProcessorValueTreeState& apvts_ref;
 
     CorrelationOpenGLComponent opengl_comp;
-    CorrelAmntComponent correl_amnt_comp;
+
+    ValueMeterComponent correl_amnt_comp;
+    ValueMeterComponent balance_amnt_comp;
+
     VolumeMeterComponent volume_meter_comp;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhaseCorrelationAnalyserComponent)
