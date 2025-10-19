@@ -24,7 +24,23 @@
       <FILE id="bxudYg" name="SpaceMono-Bold.ttf" compile="0" resource="1"
             file="resources/SpaceMono-Bold.ttf"/>
     </GROUP>
+    <GROUP id="{D3A36D62-F904-AF77-44D1-CC1919D3B5DC}" name="rwqueue">
+      <FILE id="CfoojR" name="atomicops.h" compile="0" resource="0" file="rwqueue/atomicops.h"/>
+      <FILE id="RkKIIm" name="LICENSE.md" compile="0" resource="1" file="rwqueue/LICENSE.md"/>
+      <FILE id="fodGP0" name="readerwritercircularbuffer.h" compile="0" resource="0"
+            file="rwqueue/readerwritercircularbuffer.h"/>
+      <FILE id="V5e27l" name="readerwriterqueue.h" compile="0" resource="0"
+            file="rwqueue/readerwriterqueue.h"/>
+      <FILE id="S1lsXW" name="readerwriterqueueConfig.cmake.in" compile="0"
+            resource="1" file="rwqueue/readerwriterqueueConfig.cmake.in"/>
+      <FILE id="mimrMh" name="README.md" compile="0" resource="1" file="rwqueue/README.md"/>
+    </GROUP>
     <GROUP id="{3E72B7D3-DED0-E4FF-879E-DB692AAB006B}" name="Source">
+      <GROUP id="{00A5AA55-8FD4-68DF-7233-C7AB004F5E39}" name="ds">
+        <FILE id="ZBSNHY" name="dataStructure.cpp" compile="1" resource="0"
+              file="Source/ds/dataStructure.cpp"/>
+        <FILE id="TkGhat" name="dataStructure.h" compile="0" resource="0" file="Source/ds/dataStructure.h"/>
+      </GROUP>
       <FILE id="jIxfFd" name="ColourMaps.h" compile="0" resource="0" file="Source/ColourMaps.h"/>
       <FILE id="MW5hNK" name="MainPage.cpp" compile="1" resource="0" file="Source/MainPage.cpp"/>
       <FILE id="Vr5U0q" name="MainPage.h" compile="0" resource="0" file="Source/MainPage.h"/>
@@ -59,7 +75,7 @@
                 file="Source/UI_Comp/widgets/seperator_bar_labeler.h"/>
           <FILE id="EP9UCa" name="settingsPage.h" compile="0" resource="0" file="Source/UI_Comp/widgets/settingsPage.h"/>
         </GROUP>
-        <FILE id="TNsHc5" name="README.md" compile="0" resource="0" file="Source/UI_Comp/README.md"/>
+        <FILE id="bXXwHh" name="util.h" compile="0" resource="0" file="Source/UI_Comp/util.h"/>
       </GROUP>
       <FILE id="g7cSDS" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
@@ -94,7 +110,7 @@
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Analytiks"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="Analytiks"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Analytiks" extraCompilerFlags="/O2"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_animation" path="../../../../../JUCE/modules"/>

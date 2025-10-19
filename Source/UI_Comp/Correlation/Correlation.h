@@ -34,7 +34,7 @@ public:
 
     // i.e for any sample rate.
     const int TARGET_TRIGGER_HZ = 600;
-    std::atomic<float> rms_time = 0.018;
+    std::atomic<float> rms_time = 18; // in ms.
     std::atomic<float> sample_rate = 44100.0;
     std::atomic<int> window_length_samples = sample_rate * rms_time;
     std::atomic<int> update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;

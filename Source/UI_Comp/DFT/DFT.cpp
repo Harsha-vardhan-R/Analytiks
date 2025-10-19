@@ -5,7 +5,9 @@ std::function<int(int)> PFFFT::powToTwo =
 
 PFFFT::PFFFT(
     AudioProcessorValueTreeState& apvts_reference)
-    :   apvts_ref(apvts_reference)
+    :   spectral_analyser_component(std::make_unique<SpectrumAnalyserComponent>(apvts_reference, linker)),
+        spectrogram_component(std::make_unique<SpectrogramComponent>(apvts_reference, linker)),
+        apvts_ref(apvts_reference)
 {
 
     DBG("FFT Engine SIMD size : " + String(pffft_simd_size()));
@@ -39,6 +41,16 @@ PFFFT::~PFFFT()
     
 }
 
+std::array<Component*, 2> PFFFT::getSpectrogramAndAnalyser()
+{
+    std::array<Component*, 2> arr = {
+        spectrogram_component.get(),
+        spectral_analyser_component.get()
+    };
+
+    return arr;
+}
+
 void PFFFT::cleanAllContainers()
 {
     for (auto& value : ring_buffer)
@@ -51,6 +63,11 @@ void PFFFT::cleanAllContainers()
 
 void PFFFT::processBlock(float* input, int numSamples)
 {
+    // if we can't see both analyser and the spectrogram - 
+    // there is not a need to calculate this.
+    if (spectral_analyser_component->getHeight() == 0) return;
+    // ===================================================
+
     int FFT_order = apvts_ref.getRawParameterValue("gb_fft_ord")->load();
 
     auto it = SUPPPORTED_N_INDEX.find(FFT_order);
@@ -96,9 +113,7 @@ void PFFFT::processBlock(float* input, int numSamples)
 
         ReadIndex = (ReadIndex + hop_size) % ring_buffer.size();
 
-        if (frame_callback)
-            frame_callback(amplitude_buffer.data(), num_bins);
-
+        linker.addNewData(amplitude_buffer.data(), fft_size);
     }
 }
 
@@ -107,14 +122,10 @@ void PFFFT::calculateAmplitudesFromFFT(float* input, float* output, int numSampl
     int num_bins = (numSamples / 2) + 1;
     output[0] = std::abs(input[0]);           // DC
     output[num_bins - 1] = std::abs(input[1]); // Nyquist
-    for (int k = 1; k < num_bins - 1; ++k) {
-        float real = input[2 * k];
-        float imag = input[2 * k + 1];
-        output[k] = std::sqrt(real * real + imag * imag);
+    for (int bin = 1; bin < num_bins - 1; ++bin) { // DC and nyquist are the bins that are excluded.
+        float real = input[2 * bin];
+        float imag = input[2 * bin + 1];
+        output[bin] = std::sqrt(real * real + imag * imag);
     }
 }
 
-void PFFFT::setCallback(std::function<void(float* amplitude_data_pointer, int valid_bins)> tick_callback)
-{
-    frame_callback = tick_callback;
-}

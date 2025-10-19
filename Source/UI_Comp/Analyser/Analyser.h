@@ -4,6 +4,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_opengl/juce_opengl.h>
 
+#include "../../ColourMaps.h"
+
+#include "../../ds/dataStructure.h"
+
+
 using namespace juce;
 
 #define AMPLITUDE_DATA_SIZE 8192
@@ -13,18 +18,22 @@ class SpectrumAnalyserComponent
         public OpenGLRenderer
 {
 public:
-    SpectrumAnalyserComponent(AudioProcessorValueTreeState& apvts_reference);
+    SpectrumAnalyserComponent(
+        AudioProcessorValueTreeState& apvts_reference, 
+        linkDS& lnk_reference);
     ~SpectrumAnalyserComponent();
 
     void prepareToPlay(float SampleRate, float BlockSize);
 
-    void newDataPoint(float* data_pointer, int num_values);
     void clearData();
 
     // ================================================
     void newOpenGLContextCreated() override;
     void renderOpenGL() override;
     void openGLContextClosing() override;
+
+    // set state to pause showing or continue.
+    void setState(bool state);
 
     // ================================================
     void paint(Graphics& g) override {};
@@ -36,29 +45,93 @@ public:
 
 private:
 
+    // powers of 2 based on the fft order.
+    int po2[5] = {
+        512,
+        1024,
+        2048,
+        4096,
+        8192
+    };
+
     void createShaders();
 
+    linkDS& linker_ref;
+    atomic<bool> pause;
+
     AudioProcessorValueTreeState& apvts_ref;
+
     GLfloat amplitude_data[AMPLITUDE_DATA_SIZE];
-    std::atomic<int> ring_buf_read_index = 0;
-    std::atomic<bool> dirty = false;
+    GLfloat ribbon_data[AMPLITUDE_DATA_SIZE];
+
+    std::atomic<float> SR = 44100.0;
+    
+    struct Uniforms
+    {
+    public:
+
+        Uniforms(
+            OpenGLContext& OpenGL_Context,
+            OpenGLShaderProgram& shader_program);
+
+        std::unique_ptr<OpenGLShaderProgram::Uniform>
+            resolution,
+            amplitudeData, // sampler 1d
+            ribbonData, // sampler 1d
+            colorMap_lower, // vec3
+            colorMap_higher, // vec3 
+            rangeMin, // int
+            rangeMax, // int
+            numBars, // int
+            colourmapGate, // float
+            colourmapBias; // float
+
+    private:
+
+        static OpenGLShaderProgram::Uniform* createUniform(
+            OpenGLContext& gl_context,
+            OpenGLShaderProgram& shader_program,
+            const char* uniform_name
+        );
+
+    };
+
+    GLuint 
+        dataTexture,
+        ribbonTexture;
+
+    GLuint VBO, EBO;
+
+    std::unique_ptr<OpenGLShaderProgram> shader;
+    std::unique_ptr<Uniforms> shader_uniforms;
+
+    // set to true in the newOpenGLContextCreated,
+    // so that we do not trigger repaint before the shaders are done.
+    std::atomic<bool> send_triggerRepaint = false;
 
     const char* vertexShader =
-        R"(
-                attribute vec2 position;
-                
-                void main() {
-                    gl_Position = vec4(position, 0.0, 1.0);
-                }
-            )";
+    R"(
 
-    const char* fragmentShader = R"(
+attribute vec2 position;
+                
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+
+)";
+
+    const char* fragmentShader =
+    R"(
 
 uniform vec2 resolution;
 
 uniform sampler1D amplitudeData;
 uniform sampler1D ribbonData;
-uniform sampler1D colorMap;
+
+//uniform sampler1D colorMap;
+
+uniform vec3 colorMap_lower;
+uniform vec3 colorMap_higher;
 
 // valid indexes can be calculated using range.
 // range min and range max are the indexes which we need to show.
@@ -135,50 +208,20 @@ void main() {
 
     // get the colour.
     float transformed_colour_level = pow(avg_ , colourmapBias);
-    vec3 colour = fetchTexelAtPosition(colorMap, transformed_colour_level);
+
+    vec3 colour;
+    if (avg_ < colourmapBias) {
+        colour = colorMap_lower;
+    } else {
+        float denom = 1.0 - colourmapBias;
+        float numer = avg_ - colourmapBias;
+        colour = mix(colorMap_lower, colorMap_higher, numer / denom);
+    }
     
     gl_FragColor = vec4(colour * pixel_on, 1.0);
 }
 
-        )";
-
-    struct Uniforms
-    {
-    public:
-
-        Uniforms(
-            OpenGLContext& OpenGL_Context,
-            OpenGLShaderProgram& shader_program);
-
-        std::unique_ptr<OpenGLShaderProgram::Uniform>
-            resolution,
-            amplitudeData, // sampler 1d
-            ribbonData, // sampler 1d
-            colorMap, // sampler 1d
-            rangeMin, // int
-            rangeMax, // int
-            numBars, // int
-            colourmapBias; // float
-
-    private:
-
-        static OpenGLShaderProgram::Uniform* createUniform(
-            OpenGLContext& gl_context,
-            OpenGLShaderProgram& shader_program,
-            const char* uniform_name
-        );
-
-    };
-
-    GLuint dataTexture;
-    GLuint VBO, EBO;
-
-    std::unique_ptr<OpenGLShaderProgram> shader;
-    std::unique_ptr<Uniforms> shader_uniforms;
-
-    // set to true in the newOpenGLContextCreated,
-    // so that we do not trigger repaint before the shaders are done.
-    std::atomic<bool> send_triggerRepaint = false;
+)";
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyserComponent)
 };

@@ -11,9 +11,7 @@ constexpr auto DEFAULT_HEIGHT = 1000;
 
 #include "UI_Comp/DFT/DFT.h"
 
-#include "UI_Comp/Analyser/Analyser.h"
 #include "UI_Comp/Oscilloscope/Oscilloscope.h"
-#include "UI_Comp/Spectrogram/Spectrogram.h"
 #include "UI_Comp/Correlation/Correlation.h"
 
 using namespace juce;
@@ -107,8 +105,6 @@ private:
 
     std::unique_ptr<PFFFT> fft_engine;
     
-    std::unique_ptr<SpectrogramComponent> spectrogram_component;
-    std::unique_ptr<SpectrumAnalyserComponent> spectral_analyser_component;
     std::unique_ptr<OscilloscopeComponent> oscilloscope_component;
     std::unique_ptr<PhaseCorrelationAnalyserComponent> phase_correlation_component;
 

@@ -1,7 +1,10 @@
 #include "Spectrogram.h"
 
-SpectrogramComponent::SpectrogramComponent(AudioProcessorValueTreeState& apvts_reference)
-    : apvts_ref(apvts_reference)
+SpectrogramComponent::SpectrogramComponent(
+    AudioProcessorValueTreeState& apvts_reference
+    , linkDS& lnk_reference)
+    : linker_ref(lnk_reference),
+    apvts_ref(apvts_reference)
 {
 }
 

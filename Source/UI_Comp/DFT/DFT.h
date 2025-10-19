@@ -1,5 +1,7 @@
 #pragma once
 
+// acts as the parent of the spectrogram and the spectrum analyser.
+
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -9,6 +11,13 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+
+#include "../Analyser/Analyser.h"
+#include "../Spectrogram/Spectrogram.h"
+
+#include "../../ds/dataStructure.h"
+
+#include "../../../rwqueue/readerwritercircularbuffer.h"
 
 using namespace juce;
 
@@ -27,17 +36,22 @@ public:
     PFFFT(AudioProcessorValueTreeState& apvts_reference);
     ~PFFFT();
 
+    std::array<Component*, 2> getSpectrogramAndAnalyser();
+
     void cleanAllContainers();
 
+    // automatically triggers the spectogram's and the analysers
+    // repaint methods.
     void processBlock(float* input, int numSamples);
 
     static void calculateAmplitudesFromFFT(float* input, float* output, int numSamples);
    
-    void setCallback(std::function<void(float* amplitude_data_pointer, int valid_bins)> tick_callback);
-
 private:
 
-    std::function<void(float* amplitude_data_pointer, int valid_bins)> frame_callback = NULL;
+    linkDS linker;
+
+    std::unique_ptr<SpectrogramComponent> spectrogram_component;
+    std::unique_ptr<SpectrumAnalyserComponent> spectral_analyser_component;
 
     std::vector<float> ring_buffer;
     int ReadIndex = 0, WriteIndex = 0;
@@ -94,8 +108,9 @@ private:
 
     std::vector<std::vector<float>> windows;
 
-    // +2 as N/2 + 1 bin. and each bin is of 2 values.
-    int SUPER_SET_SIZE = powToTwo(SUPPORTED_N_VALUES[4]) + 2;
+    // total (N/2+1) bins, but because DC and nyquist bins take only one number to represent,
+    // so we only need N sized containers practically to store the raw and the transformed data.
+    int SUPER_SET_SIZE = powToTwo(SUPPORTED_N_VALUES[4]);
 
     float* pffft_input  = (float*)pffft_aligned_malloc(sizeof(float) * SUPER_SET_SIZE);
     float* pffft_work   = (float*)pffft_aligned_malloc(sizeof(float) * SUPER_SET_SIZE);
@@ -103,30 +118,31 @@ private:
 
     // Once there are enough samples.
     std::vector<float> amplitude_buffer;
-    // some assumptions to store the history.
-    // These are used to approximate the size of history buffers needed to be 
-    // when they are initialised.
-    const float MAX_BPM = 240;
-    const float MIN_BPM = 60;
-    // one bar is the biggest selection.
-    // can select upto 4 bars here and with 64 multiple you would be watching 
-    // 256 bars of history.
-    const float MAX_FRACTION = 2.0;
-    const float MAX_MULTIPLE = 64.0;
-    const float MAX_SAMPLE_RATE = 96000.0;
 
-    // minimum number of frames at each given FFT size based on the above values.
-    const std::vector<int> NUM_FRAMES{
-        static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[0]))
-                * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
-        static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[1]))
-                * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
-        static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[2]))
-                * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
-        static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[3]))
-                * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
-        static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[4]))
-                * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM)))
-    };
+    //// some assumptions to store the history.
+    //// These are used to approximate the size of history buffers needed to be 
+    //// when they are initialised.
+    //const float MAX_BPM = 240;
+    //const float MIN_BPM = 60;
+    //// one bar is the biggest selection.
+    //// can select upto 4 bars here and with 64 multiple you would be watching 
+    //// 256 bars of history.
+    //const float MAX_FRACTION = 2.0;
+    //const float MAX_MULTIPLE = 64.0;
+    //const float MAX_SAMPLE_RATE = 96000.0;
+
+    //// minimum number of frames at each given FFT size based on the above values.
+    //const std::vector<int> NUM_FRAMES{
+    //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[0]))
+    //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
+    //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[1]))
+    //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
+    //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[2]))
+    //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
+    //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[3]))
+    //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),
+    //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[4]))
+    //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM)))
+    //};
 
 };

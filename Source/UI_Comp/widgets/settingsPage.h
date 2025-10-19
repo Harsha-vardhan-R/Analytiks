@@ -432,7 +432,7 @@ public:
 private:
     AudioProcessorValueTreeState& apvts_ref;
 
-    LookAndFeel_V3 styles;
+    LookAndFeel_V4 styles;
 
     Label
 

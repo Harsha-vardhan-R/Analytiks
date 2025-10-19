@@ -17,20 +17,10 @@ AnalytiksAudioProcessor::AnalytiksAudioProcessor()
 {
     // max supported block size.
     temp_buffer.resize(8192 * 2);
-
-    spectral_analyser_component = std::make_unique<SpectrumAnalyserComponent>(apvts);
-    spectrogram_component = std::make_unique<SpectrogramComponent>(apvts);
+    
     oscilloscope_component = std::make_unique<OscilloscopeComponent>(apvts);
     phase_correlation_component = std::make_unique<PhaseCorrelationAnalyserComponent>(apvts);
     fft_engine = std::make_unique<PFFFT>(apvts);
-
-    new_fft_frame_callback = [this](
-        float* data,
-        int num_bins) {
-            spectral_analyser_component->newDataPoint(data, num_bins);
-    };
-
-    fft_engine->setCallback(new_fft_frame_callback);
 
 }
 
@@ -239,10 +229,10 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         10.0,
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_rng_max",
-        "Spectrum Frequncy range Max[Hz]",
-        NormalisableRange<float>(10.0, 20000.0), 
-        20000.0, 
+        "sp_rng",
+        "Spectrum Frequncy Range[Hz]",
+        NormalisableRange<float>(0.1, 1.0), 
+        1.0, 
         float_param_attributes));
     // add an accent colour to the spectrum analyser.
     layout.add(std::make_unique<AudioParameterBool>(
@@ -251,28 +241,6 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         false,
         bool_param_attributes));
 
-    layout.add(std::make_unique<AudioParameterChoice>(
-        "sp_measure",
-        "History Window Bars",
-        StringArray(
-            "1/32",
-            "1/16",
-            "1/8",
-            "1/4",
-            "1/2",
-            "1",
-            "2",
-            "4"
-        ),
-        3,
-        choice_param_attributes));
-    layout.add(std::make_unique<AudioParameterInt>(
-        "sp_multiple",
-        "History Window Multiple",
-        1,
-        64,
-        16,
-        int_param_attributes));
 
     AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
         [](int value, int max_str_length) -> String {
@@ -345,6 +313,28 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         "Non Blurred Spectrogram", 
         false, 
         bool_param_attributes));
+    layout.add(std::make_unique<AudioParameterChoice>(
+            "sp_measure",
+            "History Window Bars",
+            StringArray(
+                "1/32",
+                "1/16",
+                "1/8",
+                "1/4",
+                "1/2",
+                "1",
+                "2",
+                "4"
+            ),
+            3,
+            choice_param_attributes));
+        layout.add(std::make_unique<AudioParameterInt>(
+            "sp_multiple",
+            "History Window Multiple",
+            1,
+            64,
+            16,
+            int_param_attributes));
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
@@ -478,9 +468,10 @@ void AnalytiksAudioProcessor::setStateInformation (const void* data, int sizeInB
 std::array<juce::Component*, 4> AnalytiksAudioProcessor::getComponentArray()
 {
     auto arr = std::array<juce::Component*, 4>();
+    auto spec_n_analyser = fft_engine.get()->getSpectrogramAndAnalyser();
 
-    arr[0] = spectral_analyser_component.get();
-    arr[1] = spectrogram_component.get();
+    arr[0] = spec_n_analyser[1];
+    arr[1] = spec_n_analyser[0];
     arr[2] = oscilloscope_component.get();
     arr[3] = phase_correlation_component.get();
 

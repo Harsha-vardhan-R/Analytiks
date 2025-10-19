@@ -1,12 +1,14 @@
 #include "Analyser.h"
 
-SpectrumAnalyserComponent::SpectrumAnalyserComponent(AudioProcessorValueTreeState& apvts_reference)
-    : apvts_ref(apvts_reference)
+SpectrumAnalyserComponent::SpectrumAnalyserComponent(
+    AudioProcessorValueTreeState& apvts_reference,
+    linkDS& lnk_reference)
+    :linker_ref(lnk_reference),
+    apvts_ref(apvts_reference)
 {
     setOpaque(true);
 
     opengl_context.setOpenGLVersionRequired(OpenGLContext::OpenGLVersion::openGL3_2);
-
     opengl_context.setRenderer(this);
 
     // no overlay for this.
@@ -14,7 +16,6 @@ SpectrumAnalyserComponent::SpectrumAnalyserComponent(AudioProcessorValueTreeStat
 
     opengl_context.attachTo(*this);
     bool vSync_success = opengl_context.setSwapInterval(1);
-    opengl_context.setContinuousRepainting(true);
 
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
@@ -24,17 +25,23 @@ SpectrumAnalyserComponent::~SpectrumAnalyserComponent()
 {
 }
 
-void SpectrumAnalyserComponent::newDataPoint(float* data_pointer, int num_values)
+void SpectrumAnalyserComponent::prepareToPlay
+(float SampleRate, float BlockSize)
 {
-    /*for (int index = 0; index < num_values; ++index)
-        amplitude_data[index] = data_pointer[index];*/
-    
+    SR = SampleRate;
+}
+
+void SpectrumAnalyserComponent::setState(bool s) {
+    pause = s;
 }
 
 void SpectrumAnalyserComponent::clearData()
 {
     for (int index = 0; index < AMPLITUDE_DATA_SIZE; ++index)
+    {
         amplitude_data[index] = 0.0;
+        ribbon_data[index] = 0.0;
+    }
 }
 
 void SpectrumAnalyserComponent::newOpenGLContextCreated()
@@ -44,31 +51,52 @@ void SpectrumAnalyserComponent::newOpenGLContextCreated()
 
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
+    
+    glGenTextures(1, &dataTexture);
+    glBindTexture(GL_TEXTURE_1D, dataTexture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexImage1D(
+        GL_TEXTURE_1D,
+        0,
+        GL_R32F, // only one value
+        AMPLITUDE_DATA_SIZE,
+        0,
+        GL_RED,
+        GL_FLOAT,
+        amplitude_data);
 
-    //glGenTextures(1, &dataTexture);
-    //glBindTexture(GL_TEXTURE_1D, dataTexture);
-    //glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexImage1D(
-    //    GL_TEXTURE_1D,
-    //    0,
-    //    GL_RG32F,
-    //    RING_BUFFER_TEXEL_SIZE, // each texel is 2 floats.
-    //    0,
-    //    GL_RG,
-    //    GL_FLOAT,
-    //    ring_buffer);
-
-    //ring_buf_read_index = 0;
+    glGenTextures(1, &ribbonTexture);
+    glBindTexture(GL_TEXTURE_1D, dataTexture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexImage1D(
+        GL_TEXTURE_1D,
+        0,
+        GL_R32F,
+        AMPLITUDE_DATA_SIZE,
+        0,
+        GL_RED,
+        GL_FLOAT,
+        ribbon_data);
 
     send_triggerRepaint = true;
     opengl_context.triggerRepaint();
 }
 
+
+
 void SpectrumAnalyserComponent::renderOpenGL()
 {
     jassert(OpenGLHelpers::isContextActive());
+
+    if (pause) return;
+
+    bool newDataAvailable = linker_ref.isLatestDataPresent();
+
+    int pres_fft_size = po2[(int)apvts_ref.getRawParameterValue("gb_fft_ord")->load()];
 
     using namespace ::juce::gl;
     // Setup viewport
@@ -84,21 +112,89 @@ void SpectrumAnalyserComponent::renderOpenGL()
 
     shader->use();
 
-    /*jassert(shader_uniforms->readIndex != nullptr);
-    jassert(shader_uniforms->resolution != nullptr);
-    jassert(shader_uniforms->pointsTex != nullptr);
-    jassert(shader_uniforms->maxIndex != nullptr);
-
-    int read_index_loaded_val = ring_buf_read_index.load();
-
     if (shader_uniforms)
     {
         shader_uniforms->resolution->
             set((GLfloat)(renderingScale * getWidth()), (GLfloat)(renderingScale * getHeight()));
-        shader_uniforms->readIndex->set((GLint)read_index_loaded_val);
-        shader_uniforms->pointsTex->set(0);
-        shader_uniforms->maxIndex->set(RING_BUFFER_TEXEL_SIZE);
-    }*/
+
+        // here the range min and the range max are the indexes in the amplitude and ribbon data.
+        // TODO 
+        shader_uniforms->rangeMin->set((GLint)apvts_ref.getRawParameterValue("sp_rng_min")->load());
+        shader_uniforms->rangeMax->set((GLint)apvts_ref.getRawParameterValue("sp_rng_max")->load());
+
+        shader_uniforms->numBars->set((GLint)apvts_ref.getRawParameterValue("sp_num_brs")->load());
+        shader_uniforms->colourmapBias->set((GLfloat)apvts_ref.getRawParameterValue("sg_cm_bias")->load());
+
+        if ((GLboolean)apvts_ref.getRawParameterValue("sp_high")->load()) {
+            // load the colour map accent colours.
+            const float* clr_data = getAccentColoursForCode((int)apvts_ref.getRawParameterValue("gb_clrmap")->load());
+            shader_uniforms->colorMap_lower->set(clr_data, 3);
+            shader_uniforms->colorMap_higher->set(clr_data + 3, 3);
+        }
+        else {
+            float clr_data[6] = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
+            shader_uniforms->colorMap_lower->set(clr_data, 3);
+            shader_uniforms->colorMap_higher->set(clr_data + 3, 3);
+        }
+    }
+    
+    if (newDataAvailable) {
+        float time1 = (GLfloat)apvts_ref.getRawParameterValue("sp_bar_spd")->load() / 1000.0;
+        float alpha1 =
+            1.0 - expf(-1.0 / (time1 * SR));
+        
+        float time2 = (GLfloat)apvts_ref.getRawParameterValue("sp_pek_hld")->load() / 1000.0;
+        float alpha2 =
+            1.0 - expf(-1.0 / (time2 * SR));
+
+        linker_ref.fillLatestData(
+            amplitude_data,
+            amplitude_data,
+            alpha1,
+            pres_fft_size);
+
+        float rem_frac = 1.0 - alpha2;
+        // based on the present aplitude values and the 
+        // old ribbon values, new ribbon values are calculated.
+        for (int sample = 0; sample < pres_fft_size; ++sample) {
+            // if value grows instantaneously set it there.
+            if (ribbon_data[sample] < amplitude_data[sample])
+                ribbon_data[sample] = amplitude_data[sample];
+            else
+                ribbon_data[sample] =   amplitude_data[sample] * alpha2 + 
+                                        ribbon_data[sample] * rem_frac;
+        }
+
+    }
+
+    // update the ribbon values.
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_1D, dataTexture);
+    if (newDataAvailable)
+    {
+        glTexSubImage1D(
+            GL_TEXTURE_1D,
+            0,
+            0,
+            AMPLITUDE_DATA_SIZE,
+            GL_RED,
+            GL_FLOAT,
+            amplitude_data);
+    }
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_1D, ribbonTexture);
+    if (newDataAvailable)
+    {
+        glTexSubImage1D(
+            GL_TEXTURE_1D,
+            0,
+            0,
+            AMPLITUDE_DATA_SIZE,
+            GL_RED,
+            GL_FLOAT,
+            ribbon_data);
+    }
 
     // Define vertices and indices for a square (full viewport).
     GLfloat vertices[] = {
@@ -111,21 +207,6 @@ void SpectrumAnalyserComponent::renderOpenGL()
         0, 1, 3,
         1, 2, 3
     };
-
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_1D, dataTexture);
-    //if (dirty.load())
-    //{
-    //    glTexSubImage1D(
-    //        GL_TEXTURE_1D,
-    //        0,
-    //        0,
-    //        RING_BUFFER_TEXEL_SIZE, // each texel is 2 floats.
-    //        GL_RG,
-    //        GL_FLOAT,
-    //        ring_buffer);
-    //    dirty.store(false);
-    //}
 
     // Bind and fill VBO
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -194,7 +275,15 @@ SpectrumAnalyserComponent::Uniforms::
 Uniforms(OpenGLContext& OpenGL_Context, OpenGLShaderProgram& shader_program)
 {
     resolution.reset(createUniform(OpenGL_Context, shader_program, "resolution"));
-    
+    amplitudeData.reset(createUniform(OpenGL_Context, shader_program, "amplitudeData"));
+    ribbonData.reset(createUniform(OpenGL_Context, shader_program, "ribbonData"));
+    colorMap_lower.reset(createUniform(OpenGL_Context, shader_program, "colorMap_lower"));
+    colorMap_higher.reset(createUniform(OpenGL_Context, shader_program, "colorMap_higher"));
+    rangeMin.reset(createUniform(OpenGL_Context, shader_program, "rangeMin"));
+    rangeMax.reset(createUniform(OpenGL_Context, shader_program, "rangeMax"));
+    numBars.reset(createUniform(OpenGL_Context, shader_program, "numBars"));
+    colourmapGate.reset(createUniform(OpenGL_Context, shader_program, "colourmapGate"));
+    colourmapBias.reset(createUniform(OpenGL_Context, shader_program, "colourmapBias"));
 }
 
 OpenGLShaderProgram::Uniform* SpectrumAnalyserComponent::Uniforms::createUniform(
@@ -202,8 +291,7 @@ OpenGLShaderProgram::Uniform* SpectrumAnalyserComponent::Uniforms::createUniform
     OpenGLShaderProgram& shader_program,
     const char* uniform_name)
 {
-    if (
-        gl_context.extensions.glGetUniformLocation(shader_program.getProgramID(), uniform_name) < 0)
+    if (gl_context.extensions.glGetUniformLocation(shader_program.getProgramID(), uniform_name) < 0)
         return nullptr;
 
     return new OpenGLShaderProgram::Uniform(shader_program, uniform_name);

@@ -73,17 +73,12 @@ void PhaseCorrelationAnalyserComponent::parameterValueChanged(int param_index, f
 {
     float rms_T = apvts_ref.getRawParameterValue("v_rms_time")->load();
     rms_time = rms_T;
-
-    window_length_samples = sample_rate * rms_time * 0.001;
-    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
+    
 }
 
 void PhaseCorrelationAnalyserComponent::prepareToPlay(float SR, float block_size)
 {
     sample_rate = SR;
-
-    window_length_samples = sample_rate * rms_time * 0.001;
-    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
 
     sample_counter = 0;
 
@@ -101,20 +96,24 @@ void PhaseCorrelationAnalyserComponent::zeroOutMeters()
     opengl_comp.newDataPoint(0.5f, 0.5f);
     correl_amnt_comp.newPoint(0.5f);
     volume_meter_comp.newPoint(0.0f, 0.0f);
+    balance_amnt_comp.newPoint(0.5);
 }
 
 void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
 {
     ScopedNoDenormals noDenormals;
 
-    float* left_channel = buffer.getWritePointer(0);
-    float* right_channel = buffer.getWritePointer(1);
-
-    int block_size = buffer.getNumSamples();
+    window_length_samples = sample_rate * rms_time * 0.001;
+    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
 
     if (window_length_samples <= 0)
         return;
 
+    float* left_channel = buffer.getWritePointer(0);
+    float* right_channel = buffer.getWritePointer(1);
+
+    int block_size = buffer.getNumSamples();
+    
     for (int sample = 0; sample < block_size; ++sample)
     {
         float left_sample = left_channel[sample];
@@ -134,35 +133,32 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
 
         sample_counter += 1;
 
+        while (SquareQueLR.size() > window_length_samples)
+        {
+            sumLR -= SquareQueLR.front();
+            SquareQueLR.pop();
+        }
+        while (SquareQueLL.size() > window_length_samples)
+        {
+            sumLL -= SquareQueLL.front();
+            SquareQueLL.pop();
+        }
+        while (SquareQueRR.size() > window_length_samples)
+        {
+            sumRR -= SquareQueRR.front();
+            SquareQueRR.pop();
+        }
+
         if (sample_counter >= update_window_samples)
         {
             sample_counter = 0;
 
-            while (SquareQueLR.size() > window_length_samples)
-            {
-                sumLR -= SquareQueLR.front();
-                SquareQueLR.pop();
-            }
-            while (SquareQueLL.size() > window_length_samples)
-            {
-                sumLL -= SquareQueLL.front();
-                SquareQueLL.pop();
-            }
-            while (SquareQueRR.size() > window_length_samples)
-            {
-                sumRR -= SquareQueRR.front();
-                SquareQueRR.pop();
-            }
+            float denominator = 
+                std::sqrtf(std::max<float>(sumLL, 0.0) * std::max<float>(sumRR, 0.0));
 
-            float denominator = std::sqrtf(
-                std::max<float>(sumLL, 0.0) * 
-                std::max<float>(sumRR, 0.0)
-            );
+            if (denominator < 1e-6) denominator = 1e-6;
 
-            if (denominator < 1e-10f || !std::isfinite(denominator))
-                denominator = 1e-10f;
-
-            float y_comp = static_cast<float>(std::max<float>(sumLR, 0.0) / denominator);
+            float y_comp = static_cast<float>(sumLR / denominator);
 
             float rmsL = std::sqrtf(std::max<float>(sumLL, 0.0) / (float)window_length_samples);
             float rmsR = std::sqrtf(std::max<float>(sumRR, 0.0) / (float)window_length_samples);
@@ -175,6 +171,7 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
                 x_comp = (rmsR - rmsL) / (rmsL + rmsR);
 
             x_comp = x_comp * 0.5f + 0.5f;
+            y_comp = y_comp * 0.5f + 0.5f;
 
             y_comp = std::clamp(y_comp, 0.0f, 1.0f);
             x_comp = std::clamp(x_comp, 0.0f, 1.0f);
@@ -202,7 +199,6 @@ CorrelationOpenGLComponent()
 
     opengl_context.attachTo(*this);
     bool vSync_success = opengl_context.setSwapInterval(1);
-    opengl_context.setContinuousRepainting(true);
 
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
@@ -264,7 +260,7 @@ newOpenGLContextCreated()
     ring_buf_read_index = 0;
 
     send_triggerRepaint = true;
-    opengl_context.triggerRepaint();
+    //opengl_context.triggerRepaint();
 }
 
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::renderOpenGL()
@@ -564,7 +560,6 @@ PhaseCorrelationAnalyserComponent::VolumeMeterComponent::VolumeMeterComponent()
 
 static float gain_to_db(float gain)
 {
-    gain = std::max<float>(gain, 1e-4);
     return 20.0 * log10f(gain);
 }
 
@@ -617,8 +612,8 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
         right_bar_bounds.removeFromLeft(1);
     }
 
-    int half_remove_left  = ((1.0 - l_vol_frac) * bounds.getHeight()) / 2;
-    int half_remove_right = ((1.0 - r_vol_frac) * bounds.getHeight()) / 2;
+    int half_remove_left  = ((1.0 - l_vol_frac) * bounds.getHeight()) * 0.5;
+    int half_remove_right = ((1.0 - r_vol_frac) * bounds.getHeight()) * 0.5;
 
     left_bar_bounds.removeFromTop(half_remove_left);
     left_bar_bounds.removeFromBottom(half_remove_left);
@@ -657,8 +652,8 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::newPoint(float l_v
     float prev_l_vol = l_rms_vol.load();
     float prev_r_vol = r_rms_vol.load();
 
-    float new_l = prev_l_vol + alpha * (l_vol - prev_l_vol);
-    float new_r = prev_r_vol + alpha * (r_vol - prev_r_vol);
+    float new_l = l_vol;
+    float new_r = r_vol;
 
     l_rms_vol.store(new_l);
     r_rms_vol.store(new_r);
