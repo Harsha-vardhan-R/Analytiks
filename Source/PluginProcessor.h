@@ -1,6 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <unordered_map>
 
 constexpr auto MIN_WIDTH      = 800;
 constexpr auto MIN_HEIGHT     = 800;

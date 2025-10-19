@@ -200,6 +200,8 @@ CorrelationOpenGLComponent()
     opengl_context.attachTo(*this);
     bool vSync_success = opengl_context.setSwapInterval(1);
 
+    opengl_context.setContinuousRepainting(true);
+
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
 

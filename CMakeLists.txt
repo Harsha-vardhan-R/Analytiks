@@ -35,7 +35,7 @@ file(GLOB RWQUEUE_RESOURCES
 juce_add_plugin(
     Analytiks
         COMPANY_NAME "MixedSignals"
-        JucePlugin_Name ""
+        JucePlugin_Name "Analytics"
         IS_SYNTH FALSE
         NEEDS_MIDI_INPUT FALSE
         NEEDS_MIDI_OUTPUT FALSE

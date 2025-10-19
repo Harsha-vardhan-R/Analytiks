@@ -120,7 +120,8 @@ void SpectrumAnalyserComponent::renderOpenGL()
         // here the range min and the range max are the indexes in the amplitude and ribbon data.
         // TODO 
         shader_uniforms->rangeMin->set((GLint)apvts_ref.getRawParameterValue("sp_rng_min")->load());
-        shader_uniforms->rangeMax->set((GLint)apvts_ref.getRawParameterValue("sp_rng_max")->load());
+        // shader_uniforms->rangeMax->set((GLint)apvts_ref.getRawParameterValue("sp_rng")->load());
+        shader_uniforms->rangeMax->set(20000);
 
         shader_uniforms->numBars->set((GLint)apvts_ref.getRawParameterValue("sp_num_brs")->load());
         shader_uniforms->colourmapBias->set((GLfloat)apvts_ref.getRawParameterValue("sg_cm_bias")->load());

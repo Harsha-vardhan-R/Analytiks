@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../../rwqueue/readerwriterqueue.h"
 
 #include <vector>
@@ -13,7 +15,7 @@ using namespace std;
 
 // This data structure runs on the balance of the consumer and the 
 // producer, we consume in bites and we should eat the data faster than
-// it acuumulates more than `POOL_SIZE`.
+// it accumulates more than `POOL_SIZE`.
 // consumer accessing the data after the producer stops producing is a valid case,
 // but the other way around is not valid, you cannot accumulate more than
 // `POOL_DATA` elements.

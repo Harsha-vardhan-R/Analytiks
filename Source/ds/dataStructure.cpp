@@ -23,9 +23,9 @@ bool linkDS::fillLatestData(
     int numSamples
 )
 {
-    // if the latest value has been not changed
+    // if the latest value has been changed
     if (isLatestDataPresent()) {
-        float rem_frac = 1.0 - alpha;
+        float rem_frac = 1.0f - alpha;
 
         int front_data = latest_data.load();
         const vector<float>& cont = pool[front_data];
@@ -34,7 +34,10 @@ bool linkDS::fillLatestData(
             buffer[i] = cont[i] * alpha + prev[i] * rem_frac;
         
         last_read_latest_data = front_data;
+        return true;  // Data was updated
     }
+    
+    return false;  // No new data was present
 }
 
 bool linkDS::fillFrontData(float* buffer, int numSamples)
@@ -76,7 +79,7 @@ void linkDS::addNewData(float* data, int numSamples)
 
     // get the front empty container.
     int empty_container = *useQueue.peek();
-    vector<float> & cont = pool[empty_container];
+    vector<float>& cont = pool[empty_container];
 
     for (int sample = 0; sample < numSamples; ++sample) cont[sample] = data[sample];
 
@@ -91,7 +94,6 @@ void linkDS::addNewData(float* data, int numSamples)
     useQueue.try_dequeue(empty_container);
 
     latest_data.store(empty_container);
-    
 }
 
 bool linkDS::empty() const {

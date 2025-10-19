@@ -143,9 +143,9 @@ public:
         {
             button_->setLookAndFeel(&styles);
 
-            button_->setColour(ToggleButton::ColourIds::textColourId, Colours::black);
-            button_->setColour(ToggleButton::ColourIds::tickColourId, Colours::black);
-            button_->setColour(ToggleButton::ColourIds::tickDisabledColourId, Colours::black);
+            button_->setColour(ToggleButton::ColourIds::textColourId, Colours::lightgrey);
+            button_->setColour(ToggleButton::ColourIds::tickColourId, Colours::blue);
+            button_->setColour(ToggleButton::ColourIds::tickDisabledColourId, Colours::grey);
         }
 
         listen_button.setButtonText("Listen");
@@ -188,7 +188,7 @@ public:
                 &measure_combobox_label
             })
         {
-            label_->setColour(Label::ColourIds::textColourId, Colours::black);
+            label_->setColour(Label::ColourIds::textColourId, Colours::lightgrey);
         };
 
         accent_colour_slider_attachment =
@@ -201,7 +201,7 @@ public:
                 freq_range_min_slider);
         freq_range_max_slider_attachment =
             std::make_unique < SliderParameterAttachment >(
-                *apvts_ref.getParameter("sp_rng_max"),
+                *apvts_ref.getParameter("sp_rng"),
                 freq_range_max_slider);
         num_bars_slider_attachment =
             std::make_unique < SliderParameterAttachment >(
@@ -291,20 +291,23 @@ public:
             slider_->setSliderStyle(Slider::SliderStyle::LinearHorizontal);
             slider_->setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 15);
             slider_->setLookAndFeel(&styles);
-            slider_->setColour(Slider::ColourIds::textBoxTextColourId, Colours::black);
-            //slider_->setColour(Slider::ColourIds::trackColourId, Colours::orange);
+            slider_->setColour(Slider::ColourIds::textBoxTextColourId, Colours::lightgrey);
+            slider_->setColour(Slider::ColourIds::textBoxBackgroundColourId, Colours::black);
+            slider_->setColour(Slider::ColourIds::trackColourId, Colours::orange);
         }
 
     }
 
     void paint(Graphics& g) override
     {
-        g.fillAll(Colours::white);
+        g.fillAll(Colour::fromRGB(25, 25, 25));
     }
 
     void resized() override
     {
         auto bounds = getLocalBounds();
+        bounds.removeFromRight(10);
+        bounds.removeFromLeft(10);
 
         auto slider_height = 0.022 * bounds.getHeight();
         auto label_height = slider_height*0.75;

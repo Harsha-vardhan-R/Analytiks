@@ -217,7 +217,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterBool>(
         "gb_listen", 
         "Listen", 
-        false, 
+        true, 
         bool_param_attributes));
 
     ////////////////////////////////////////////////////
