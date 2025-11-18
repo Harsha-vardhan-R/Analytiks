@@ -134,7 +134,7 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
     int block_size = buffer.getNumSamples();
 
     static int recalc_counter = 0;
-    const int RECALC_INTERVAL = 32768;
+    const int RECALC_INTERVAL = 32768; // 
 
     for (int i = 0; i < block_size; ++i)
     {
