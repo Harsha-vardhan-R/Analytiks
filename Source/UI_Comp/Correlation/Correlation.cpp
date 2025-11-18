@@ -10,13 +10,14 @@ PhaseCorrelationAnalyserComponent::PhaseCorrelationAnalyserComponent(AudioProces
     addAndMakeVisible(correl_amnt_comp);
     addAndMakeVisible(balance_amnt_comp);
 
-    apvts_ref.getParameter("v_rms_time")->addListener(this);
+    startTimerHz(REFRESH_RATE_HZ);
 
-    parameterValueChanged(0, 0.0);
+    apvts_ref.getParameter("gb_clrmap")->addListener(&opengl_comp);
 }
 
 PhaseCorrelationAnalyserComponent::~PhaseCorrelationAnalyserComponent()
 {
+    apvts_ref.getParameter("gb_clrmap")->removeListener(&opengl_comp);
 }
 
 void PhaseCorrelationAnalyserComponent::paint(Graphics& g)
@@ -32,15 +33,13 @@ void PhaseCorrelationAnalyserComponent::paint(Graphics& g)
 void PhaseCorrelationAnalyserComponent::resized()
 {
 
-    float vol_bounds_width = std::max<float>(getWidth() * 0.05, 11);
-    float correl_amnt_bounds_height = std::max<float>(getHeight() * 0.05, 10);
+    float vol_bounds_width = std::clamp<float>(getWidth() * 0.05, 11, 37);
     auto bounds = getLocalBounds();
 
-    // TODO : this would be at the top if we used a 
-    // rotated orientation.
+    // TODO : this would be at the top if we used a rotated orientation.
     auto volume_bounds = bounds.removeFromLeft(vol_bounds_width);
-    auto corell_amount_bounds = bounds.removeFromRight(correl_amnt_bounds_height);
-    auto balance_amount_bounds = bounds.removeFromBottom(correl_amnt_bounds_height);
+    auto corell_amount_bounds = bounds.removeFromRight(vol_bounds_width);
+    auto balance_amount_bounds = bounds.removeFromBottom(vol_bounds_width);
 
     // Now select the biggest square that you can make out of the 
     // remaining bounds justified center.
@@ -60,7 +59,7 @@ void PhaseCorrelationAnalyserComponent::resized()
         bounds.removeFromBottom(toRemove);
     }
 
-    bounds.removeFromTop(correl_amnt_bounds_height);
+    bounds.removeFromTop(vol_bounds_width);
 
     opengl_comp.setBounds(bounds.reduced(5));
     correl_amnt_comp.setBounds(corell_amount_bounds);
@@ -69,11 +68,18 @@ void PhaseCorrelationAnalyserComponent::resized()
 
 }
 
-void PhaseCorrelationAnalyserComponent::parameterValueChanged(int param_index, float new_value)
+void PhaseCorrelationAnalyserComponent::timerCallback()
 {
-    float rms_T = apvts_ref.getRawParameterValue("v_rms_time")->load();
-    rms_time = rms_T;
-    
+    if (dirty) {
+        opengl_comp.repaint();
+
+        volume_meter_comp.repaint();
+        correl_amnt_comp.repaint();
+        balance_amnt_comp.repaint();
+
+        dirty = false;
+    }
+
 }
 
 void PhaseCorrelationAnalyserComponent::prepareToPlay(float SR, float block_size)
@@ -82,13 +88,15 @@ void PhaseCorrelationAnalyserComponent::prepareToPlay(float SR, float block_size
 
     sample_counter = 0;
 
-    sumLR = 0.0f;
-    sumRR = 0.0f;
+    while (SquareQueLL.size()) SquareQueLL.pop();
+    while (SquareQueRR.size()) SquareQueRR.pop();
+    while (SquareQueLR.size()) SquareQueLR.pop();
+    
     sumLL = 0.0f;
+    sumRR = 0.0f;
+    sumLR = 0.0f;
 
-    while (SquareQueLR.size() > 0) SquareQueLR.pop();
-    while (SquareQueLL.size() > 0) SquareQueLL.pop();
-    while (SquareQueRR.size() > 0) SquareQueRR.pop();
+    zeroOutMeters();
 }
 
 void PhaseCorrelationAnalyserComponent::zeroOutMeters()
@@ -97,91 +105,151 @@ void PhaseCorrelationAnalyserComponent::zeroOutMeters()
     correl_amnt_comp.newPoint(0.5f);
     volume_meter_comp.newPoint(0.0f, 0.0f);
     balance_amnt_comp.newPoint(0.5);
+    volume_meter_comp.zeroOut();
 }
 
 void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
 {
-    ScopedNoDenormals noDenormals;
+    float new_rms_time = apvts_ref.getRawParameterValue("v_rms_time")->load();
+    int new_window_length = (int)(sample_rate * new_rms_time * 0.001f);
+    update_window_samples    = (int)(sample_rate / (float)TARGET_TRIGGER_HZ);
 
-    window_length_samples = sample_rate * rms_time * 0.001;
-    update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
+    if (new_window_length != window_length_samples && new_window_length > 0)
+    {
+        window_length_samples = new_window_length;
+        sample_counter = 0;
+        while (!SquareQueLL.empty()) SquareQueLL.pop();
+        while (!SquareQueRR.empty()) SquareQueRR.pop();
+        while (!SquareQueLR.empty()) SquareQueLR.pop();
+        sumLL = 0.0f;
+        sumRR = 0.0f;
+        sumLR = 0.0f;
+    }
 
     if (window_length_samples <= 0)
         return;
 
-    float* left_channel = buffer.getWritePointer(0);
+    float* left_channel  = buffer.getWritePointer(0);
     float* right_channel = buffer.getWritePointer(1);
-
     int block_size = buffer.getNumSamples();
-    
-    for (int sample = 0; sample < block_size; ++sample)
+
+    static int recalc_counter = 0;
+    const int RECALC_INTERVAL = 32768;
+
+    for (int i = 0; i < block_size; ++i)
     {
-        float left_sample = left_channel[sample];
-        float right_sample = right_channel[sample];
+        float left_sample  = std::isnan(left_channel[i])  ? 0.0f : std::clamp(left_channel[i],  -1.0f, 1.0f);
+        float right_sample = std::isnan(right_channel[i]) ? 0.0f : std::clamp(right_channel[i], -1.0f, 1.0f);
+        float LL = left_sample  * left_sample;
+        float RR = right_sample * right_sample;
+        float LR = left_sample  * right_sample;
 
-        float right_sample_squared = right_sample * right_sample;
-        float left_sample_squared = left_sample * left_sample;
-        float left_times_right = left_sample * right_sample;
+        sumLL += LL;  sumRR += RR;  sumLR += LR;
+        
+        SquareQueLL.push(LL);
+        SquareQueRR.push(RR);
+        SquareQueLR.push(LR);
 
-        sumLR += left_times_right;
-        sumRR += right_sample_squared;
-        sumLL += left_sample_squared;
-
-        SquareQueLR.push(left_times_right);
-        SquareQueLL.push(left_sample_squared);
-        SquareQueRR.push(right_sample_squared);
-
-        sample_counter += 1;
-
-        while (SquareQueLR.size() > window_length_samples)
+        while ((int)SquareQueLL.size() > window_length_samples)
         {
-            sumLR -= SquareQueLR.front();
+            sumLL -= SquareQueLL.front();  
+            SquareQueLL.pop();
+
+
+            sumRR -= SquareQueRR.front();  
+            SquareQueRR.pop();
+            
+            sumLR -= SquareQueLR.front();  
             SquareQueLR.pop();
         }
-        while (SquareQueLL.size() > window_length_samples)
+
+        if (++recalc_counter >= RECALC_INTERVAL)
         {
-            sumLL -= SquareQueLL.front();
-            SquareQueLL.pop();
-        }
-        while (SquareQueRR.size() > window_length_samples)
-        {
-            sumRR -= SquareQueRR.front();
-            SquareQueRR.pop();
+            recalc_counter = 0;
+            recalculateSums();
         }
 
-        if (sample_counter >= update_window_samples)
+        if (++sample_counter >= update_window_samples)
         {
             sample_counter = 0;
 
-            float denominator = 
-                std::sqrtf(std::max<float>(sumLL, 0.0) * std::max<float>(sumRR, 0.0));
+            float denom = std::sqrtf(sumLL * sumRR);
+            if (denom < 1e-6f) denom = 1e-6f;
 
-            if (denominator < 1e-6) denominator = 1e-6;
+            float y_comp = sumLR / denom;
 
-            float y_comp = static_cast<float>(sumLR / denominator);
+            y_comp = y_comp * 0.5f + 0.5f;
+            y_comp = 1.0 - y_comp;
+            y_comp = std::clamp(y_comp, 0.0f, 1.0f);
 
-            float rmsL = std::sqrtf(std::max<float>(sumLL, 0.0) / (float)window_length_samples);
-            float rmsR = std::sqrtf(std::max<float>(sumRR, 0.0) / (float)window_length_samples);
+            float rmsL = std::sqrtf(sumLL / (float)window_length_samples);
+            float rmsR = std::sqrtf(sumRR / (float)window_length_samples);
 
-            if (!std::isfinite(rmsL) || rmsL < 0.0f) rmsL = 0.0f;
-            if (!std::isfinite(rmsR) || rmsR < 0.0f) rmsR = 0.0f;
+            const float noiseGate = 5e-4f;
+            if (rmsL < noiseGate) rmsL = 0.0f;
+            if (rmsR < noiseGate) rmsR = 0.0f;
 
             float x_comp = 0.0f;
-            if (rmsL + rmsR > 1e-10f)
+            if (rmsL + rmsR > 1e-8f)
                 x_comp = (rmsR - rmsL) / (rmsL + rmsR);
 
             x_comp = x_comp * 0.5f + 0.5f;
-            y_comp = y_comp * 0.5f + 0.5f;
-
-            y_comp = std::clamp(y_comp, 0.0f, 1.0f);
             x_comp = std::clamp(x_comp, 0.0f, 1.0f);
 
-            opengl_comp.newDataPoint(left_sample * 0.5f + 0.5f, right_sample * 0.5f + 0.5f);
-            correl_amnt_comp.newPoint(1.0-y_comp);
-            volume_meter_comp.newPoint(rmsL * 1.414f, rmsR * 1.414f);
+            float xx = left_sample * 0.5 + 0.5;
+            float yy = right_sample * 0.5 + 0.5;
+
+            xx = jmap<float>(xx, 0.0, 1.0, 0.15, 0.85);
+            yy = jmap<float>(yy, 0.0, 1.0, 0.15, 0.85);
+
+            const float centerX = 0.5f;
+            const float centerY = 0.5f;
+
+            float translatedX = xx - centerX;
+            float translatedY = yy - centerY;
+
+            const float cosAngle = 0.707107f;
+            const float sinAngle = 0.707107f;
+
+            float rotatedX = translatedX * cosAngle - translatedY * sinAngle;
+            float rotatedY = translatedX * sinAngle + translatedY * cosAngle;
+
+            float finalX = rotatedX + centerX;
+            float finalY = rotatedY + centerY;
+
+            if (finalX < 0.0f) finalX = 0.0f;
+            if (finalX > 1.0f) finalX = 1.0f;
+            if (finalY < 0.0f) finalY = 0.0f;
+            if (finalY > 1.0f) finalY = 1.0f;
+
+            opengl_comp.newDataPoint(finalX, finalY);
+            correl_amnt_comp.newPoint(y_comp);
+            volume_meter_comp.newPoint(rmsL, rmsR);
             balance_amnt_comp.newPoint(x_comp);
-            
+
+            dirty = true;
         }
+    }
+}
+
+void PhaseCorrelationAnalyserComponent::recalculateSums()
+{
+    sumLL = 0.0f;
+    sumRR = 0.0f;
+    sumLR = 0.0f;
+    
+    std::queue<float> tempLL = SquareQueLL;
+    std::queue<float> tempRR = SquareQueRR;
+    std::queue<float> tempLR = SquareQueLR;
+    
+    while (!tempLL.empty())
+    {
+        sumLL += tempLL.front();
+        sumRR += tempRR.front();
+        sumLR += tempLR.front();
+        tempLL.pop();
+        tempRR.pop();
+        tempLR.pop();
     }
 }
 
@@ -200,7 +268,7 @@ CorrelationOpenGLComponent()
     opengl_context.attachTo(*this);
     bool vSync_success = opengl_context.setSwapInterval(1);
 
-    opengl_context.setContinuousRepainting(true);
+    opengl_context.setContinuousRepainting(false);
 
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
@@ -215,6 +283,13 @@ PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
 
     shader.reset();
     shader_uniforms.reset();
+}
+
+void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
+parameterValueChanged(int index, float newValue)
+{
+    const float* clrs = getAccentColoursForCode((int)(newValue * 10));
+    for (int i = 0; i < 6; ++i) colours[i] = clrs[i];
 }
 
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
@@ -283,11 +358,6 @@ void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::renderOpenGL
 
     shader->use();
 
-    jassert(shader_uniforms->readIndex != nullptr);
-    jassert(shader_uniforms->resolution != nullptr);
-    jassert(shader_uniforms->pointsTex != nullptr);
-    jassert(shader_uniforms->maxIndex != nullptr);
-
     int read_index_loaded_val = ring_buf_read_index.load();
 
     if (shader_uniforms)
@@ -297,6 +367,9 @@ void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::renderOpenGL
         shader_uniforms->readIndex->set((GLint)read_index_loaded_val);
         shader_uniforms->pointsTex->set(0);
         shader_uniforms->maxIndex->set(RING_BUFFER_TEXEL_SIZE);
+
+        shader_uniforms->col1->set(colours[0], colours[1], colours[2]);
+        shader_uniforms->col2->set(colours[3], colours[4], colours[5]);
     }
 
     // Define vertices and indices for a square (full viewport).
@@ -400,6 +473,8 @@ Uniforms(OpenGLContext& OpenGL_Context, OpenGLShaderProgram& shader_program)
     readIndex.reset(createUniform(OpenGL_Context, shader_program, "readIndex"));
     pointsTex.reset(createUniform(OpenGL_Context, shader_program, "pointsTex"));
     maxIndex.reset(createUniform(OpenGL_Context, shader_program, "maxIndex"));
+    col1.reset(createUniform(OpenGL_Context, shader_program, "col1"));
+    col2.reset(createUniform(OpenGL_Context, shader_program, "col2"));
 }
 
 OpenGLShaderProgram::Uniform* PhaseCorrelationAnalyserComponent::
@@ -420,7 +495,6 @@ PhaseCorrelationAnalyserComponent::ValueMeterComponent::ValueMeterComponent
     :   low_val(low_value_str),
         high_val(high_value_str)
 {
-    startTimerHz(refreshRate);
 }
 
 void PhaseCorrelationAnalyserComponent::ValueMeterComponent::paint(Graphics& g)
@@ -432,47 +506,42 @@ void PhaseCorrelationAnalyserComponent::ValueMeterComponent::paint(Graphics& g)
     {
         int padding = std::max(1.0, 0.1 * getHeight());
 
-        auto bot = bounds.removeFromBottom(padding);
         auto top = bounds.removeFromTop(padding);
-        auto left = bounds.removeFromLeft(padding);
-        auto right = bounds.removeFromRight(padding);
 
         g.setColour(accent_colour);
-
-        g.fillRect(bot);
         g.fillRect(top);
-        g.fillRect(left);
-        g.fillRect(right);
-
-        bounds.reduce(2, 2);
-
-        g.setColour(juce::Colours::darkgrey);
-
-        g.fillRect(
-            bounds.getX() + (bounds.getWidth() / 2) - 1,
-            bounds.getY(),
-            2,
-            bounds.getHeight()
-        );
 
         g.setColour(juce::Colours::white);
 
-        int bar_width = std::max<int>(3, 0.02 * (float)bounds.getWidth());
+        int bar_width = std::min<int>(5, 0.02 * (float)bounds.getWidth());
 
         g.fillRect(
-            bounds.getX() + (int)((float)(bounds.getWidth() - bar_width) * pres_value.load()),
+            bounds.getX() + (int)((float)(bounds.getWidth() - (bar_width/2)) * pres_value.load()),
             bounds.getY(),
             bar_width,
             bounds.getHeight()
         );
     
-        g.setColour(Colours::darkgrey);
+        g.setColour(juce::Colours::darkgrey.withAlpha(0.5f));
+
+        g.fillRect(
+            bounds.getX() + (bounds.getWidth() / 2),
+            bounds.getY(),
+            2,
+            bounds.getHeight()
+        );
+
+        g.setFont(std::min(bounds.getWidth(), bounds.getHeight()) * 0.6f);
+
+        g.setColour(Colours::blue);
 
         g.drawText(
             low_val,
             bounds.removeFromLeft(bounds.getHeight()),
             Justification::centred
         );
+
+        g.setColour(Colours::red);
 
         g.drawText(
             high_val,
@@ -485,32 +554,15 @@ void PhaseCorrelationAnalyserComponent::ValueMeterComponent::paint(Graphics& g)
     {
         int padding = std::max(1.0, 0.1 * getWidth());
 
-        auto bot = bounds.removeFromBottom(padding);
-        auto top = bounds.removeFromTop(padding);
         auto left = bounds.removeFromLeft(padding);
-        auto right = bounds.removeFromRight(padding);
 
         g.setColour(accent_colour);
 
-        g.fillRect(bot);
-        g.fillRect(top);
         g.fillRect(left);
-        g.fillRect(right);
-
-        bounds.reduce(2, 2);
-
-        g.setColour(juce::Colours::darkgrey);
-
-        g.fillRect(
-            bounds.getX(),
-            bounds.getY() + (bounds.getHeight() / 2) - 1,
-            bounds.getWidth(),
-            2
-        );
 
         g.setColour(juce::Colours::white);
 
-        int bar_width = std::max<int>(3, 0.02 * (float)bounds.getHeight());
+        int bar_width = std::min<int>(5, 0.02 * (float)bounds.getHeight());
 
         g.fillRect(
             bounds.getX(),
@@ -519,13 +571,26 @@ void PhaseCorrelationAnalyserComponent::ValueMeterComponent::paint(Graphics& g)
             bar_width
         );
 
-        g.setColour(Colours::darkgrey);
 
+        g.setColour(juce::Colours::darkgrey);
+
+        g.fillRect(
+            bounds.getX(),
+            bounds.getY() + (bounds.getHeight() / 2),
+            bounds.getWidth(),
+            2
+        );
+
+        g.setColour(Colours::red);
+
+        g.setFont(std::min(bounds.getWidth(), bounds.getHeight()) * 0.6f);
         g.drawText(
             low_val,
             bounds.removeFromBottom(bounds.getWidth()),
             Justification::centred
         );
+
+        g.setColour(Colours::blue);
 
         g.drawText(
             high_val,
@@ -541,23 +606,28 @@ void PhaseCorrelationAnalyserComponent::ValueMeterComponent::resized()
 {
 }
 
-void PhaseCorrelationAnalyserComponent::ValueMeterComponent::timerCallback()
-{
-    repaint();
-}
+
 
 void PhaseCorrelationAnalyserComponent::ValueMeterComponent::newPoint(float y_val)
 {
     // one pole smoothing filter.
     float prev_value = pres_value.load();
     float new_value = prev_value + (y_val - prev_value)*alpha;
-        
+
     pres_value.store(new_value);
 }
 
 PhaseCorrelationAnalyserComponent::VolumeMeterComponent::VolumeMeterComponent()
 {
-    startTimerHz(refreshRate);
+}
+
+void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::zeroOut()
+{
+    l_rms_vol.store(0.0f);
+    r_rms_vol.store(0.0f);
+
+    l_rms_vol_smoothed = 0.0f;
+    r_rms_vol_smoothed = 0.0f;
 }
 
 static float gain_to_db(float gain)
@@ -567,11 +637,7 @@ static float gain_to_db(float gain)
 
 static float custom_remap(float vol_dB)
 {
-    // 7 parts.
-    // 1st part -> -INFdb(here -INF == -80dB :/ ) to -60.
-
     vol_dB = std::clamp<float>(vol_dB, -80.0, 0.0);
-
     return jmap<float>(vol_dB, -80.0, 0.0, 0.0, 1.0);
 }
 
@@ -583,20 +649,17 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
 
     auto bounds = getLocalBounds();
 
-    auto bot = bounds.removeFromBottom(padding);
-    auto top = bounds.removeFromTop(padding);
-    auto left = bounds.removeFromLeft(padding);
     auto right = bounds.removeFromRight(padding);
 
     g.setColour(accent_colour);
-
-    g.fillRect(bot);
-    g.fillRect(top);
-    g.fillRect(left);
     g.fillRect(right);
 
-    bounds.reduce(2, 2);
+    bounds.removeFromLeft(1);
+    bounds.removeFromRight(1);
 
+    auto center_line_bounds = bounds;
+    center_line_bounds.removeFromTop(bounds.getHeight() / 2);
+    center_line_bounds.removeFromBottom(bounds.getHeight() / 2 - 1);
 
     float l_vol_frac = custom_remap(gain_to_db(
         std::clamp<float>(l_rms_vol.load(), 0.0, 1.0)
@@ -604,18 +667,30 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
     float r_vol_frac = custom_remap(gain_to_db(
         std::clamp<float>(r_rms_vol.load(), 0.0, 1.0)
     ));
+    float l_vol_frac_smooth = custom_remap(gain_to_db(
+        std::clamp<float>(l_rms_vol_smoothed, 0.0, 1.0)
+    ));
+    float r_vol_frac_smooth = custom_remap(gain_to_db(
+        std::clamp<float>(r_rms_vol_smoothed, 0.0, 1.0)
+    ));
 
     auto left_bar_bounds = bounds.removeFromLeft(bounds.getWidth() / 2);
     auto right_bar_bounds = bounds;
 
+    auto left_background_bar_bound = left_bar_bounds;
+    auto right_background_bar_bound = right_bar_bounds;
+
     if (left_bar_bounds.getWidth() > 1 && right_bar_bounds.getWidth() > 1)
     {
         left_bar_bounds.removeFromRight(1);
-        right_bar_bounds.removeFromLeft(1);
+        left_background_bar_bound.removeFromRight(1);
     }
 
-    int half_remove_left  = ((1.0 - l_vol_frac) * bounds.getHeight()) * 0.5;
-    int half_remove_right = ((1.0 - r_vol_frac) * bounds.getHeight()) * 0.5;
+    int half_remove_left  = (1.0 - l_vol_frac) * bounds.getHeight() * 0.5;
+    int half_remove_right = (1.0 - r_vol_frac) * bounds.getHeight() * 0.5;
+
+    int half_remove_left_smooth  = (1.0 - l_vol_frac_smooth) * bounds.getHeight() * 0.5;
+    int half_remove_right_smooth = (1.0 - r_vol_frac_smooth) * bounds.getHeight() * 0.5;
 
     left_bar_bounds.removeFromTop(half_remove_left);
     left_bar_bounds.removeFromBottom(half_remove_left);
@@ -623,27 +698,26 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
     right_bar_bounds.removeFromTop(half_remove_right);
     right_bar_bounds.removeFromBottom(half_remove_right);
 
-    g.setColour(juce::Colours::white);
+    left_background_bar_bound.removeFromTop(half_remove_left_smooth);
+    left_background_bar_bound.removeFromBottom(half_remove_left_smooth);
 
+    right_background_bar_bound.removeFromTop(half_remove_right_smooth);
+    right_background_bar_bound.removeFromBottom(half_remove_right_smooth);
+
+    g.setColour(juce::Colours::orangered);
+    g.fillRect(left_background_bar_bound);
+    g.fillRect(right_background_bar_bound);
+
+    g.setColour(juce::Colours::white);
     g.fillRect(left_bar_bounds);
     g.fillRect(right_bar_bounds);
 
-    g.setColour(juce::Colours::darkgrey);
-    g.fillRect(
-        padding + 2,
-        bounds.getY() + (bounds.getHeight() / 2) - 1,
-        bounds.getWidth() * 2,
-        2
-    );
+    g.setColour(juce::Colours::darkgrey.withAlpha(0.5f));
+    g.fillRect(center_line_bounds);
 }
 
 void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::resized()
 {
-}
-
-void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::timerCallback()
-{
-    repaint();
 }
 
 void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::newPoint(float l_vol, float r_vol)
@@ -651,12 +725,17 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::newPoint(float l_v
     if (std::isnan(l_vol)) l_vol = 0.0f;
     if (std::isnan(r_vol)) r_vol = 0.0f;
 
-    float prev_l_vol = l_rms_vol.load();
-    float prev_r_vol = r_rms_vol.load();
+    float prev_l_vol = l_rms_vol_smoothed;
+    float prev_r_vol = r_rms_vol_smoothed;
 
-    float new_l = l_vol;
-    float new_r = r_vol;
+    float new_l, new_r;
 
-    l_rms_vol.store(new_l);
-    r_rms_vol.store(new_r);
+    if (l_vol > prev_l_vol) l_rms_vol_smoothed = l_vol;
+    else  l_rms_vol_smoothed = prev_l_vol + (l_vol - prev_l_vol) * alpha;
+
+    if (r_vol > prev_r_vol) r_rms_vol_smoothed = r_vol;
+    else r_rms_vol_smoothed = prev_r_vol + (r_vol - prev_r_vol) * alpha;
+
+    l_rms_vol.store(l_vol);
+    r_rms_vol.store(r_vol);
 }
