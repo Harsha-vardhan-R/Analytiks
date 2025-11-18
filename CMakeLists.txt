@@ -7,6 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(JUCE)
 
+if(WIN32)
+    set(CMAKE_GENERATOR_PLATFORM x64)
+endif()
+
 file(GLOB_RECURSE SOURCE_FILES
     "Source/*.cpp"
     "Source/*.h"

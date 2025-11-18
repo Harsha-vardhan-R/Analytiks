@@ -235,7 +235,7 @@ inline const AccentColours GNUPLOT2_ACCENT = {
     1.00000f, 1.00000f, 0.00000f
 };
 
-static const const float* getColourMapForCode(int code)
+static const float* getColourMapForCode(int code)
 {
     switch (code)
     {
@@ -255,7 +255,7 @@ static const const float* getColourMapForCode(int code)
     }
 }
 
-static const const float* getAccentColoursForCode(int code)
+static const float* getAccentColoursForCode(int code)
 {
     switch (code)
     {

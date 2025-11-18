@@ -144,7 +144,7 @@ public:
             button_->setLookAndFeel(&styles);
 
             button_->setColour(ToggleButton::ColourIds::textColourId, Colours::lightgrey);
-            button_->setColour(ToggleButton::ColourIds::tickColourId, Colours::blue);
+            button_->setColour(ToggleButton::ColourIds::tickColourId, Colours::white);
             button_->setColour(ToggleButton::ColourIds::tickDisabledColourId, Colours::grey);
         }
 
@@ -294,6 +294,7 @@ public:
             slider_->setColour(Slider::ColourIds::textBoxTextColourId, Colours::lightgrey);
             slider_->setColour(Slider::ColourIds::textBoxBackgroundColourId, Colours::black);
             slider_->setColour(Slider::ColourIds::trackColourId, Colours::orange);
+            slider_->setColour(Slider::ColourIds::thumbColourId, Colours::red);
         }
 
     }

@@ -101,7 +101,7 @@ void AnalytiksAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
 void AnalytiksAudioProcessor::releaseResources()
 {
-    phase_correlation_component->zeroOutMeters();
+    // phase_correlation_component->zeroOutMeters();
 }
 
 AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_parameter_layout()
