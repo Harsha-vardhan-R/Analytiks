@@ -136,10 +136,10 @@ public:
         void main() {
             vec2 uv = gl_FragCoord.xy / resolution.xy;
 
-            vec2 p1 = vec2(0.0, 0.5);
-            vec2 p2 = vec2(0.5, 1.0);
-            vec2 p3 = vec2(1.0, 0.5);
-            vec2 p4 = vec2(0.5, 0.0);
+            vec2 p1 = vec2(0.25, 0.75);
+            vec2 p2 = vec2(0.25, 0.25);
+            vec2 p3 = vec2(0.75, 0.25);
+            vec2 p4 = vec2(0.75, 0.75);
 
             float thicknessPx = 3.0;
 

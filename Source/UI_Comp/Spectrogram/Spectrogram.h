@@ -12,14 +12,18 @@ class SpectrogramComponent : public Component
 {
 public:
 
-    SpectrogramComponent(AudioProcessorValueTreeState& apvts_reference, linkDS& lnk_reference);
+    SpectrogramComponent(AudioProcessorValueTreeState& apvts_reference);
+
+    void newDataBatch(std::array<std::vector<float>, 32>& data, int valid, int numBins);
 
     void paint(Graphics& g) override;
     void resized() override;
 
 private:
-    linkDS& linker_ref;
+    //linkDS& linker_ref;
     AudioProcessorValueTreeState& apvts_ref;
+
+    std::atomic<int> numValidBins = 512;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrogramComponent)
 };

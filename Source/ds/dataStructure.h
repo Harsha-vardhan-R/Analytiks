@@ -26,12 +26,12 @@ class linkDS {
 public:
     linkDS();
 
-    //// ====================== THREAD 1 ===========================
+    /// ====================== THREAD 1 ===========================
     // called from the fft engine (PFFT class);
     void addNewData(float* data, int numSamples);
-    //// ===========================================================
+    /// ===========================================================
 
-    //// ====================== THREAD 2 ===========================
+    /// ====================== THREAD 2 ===========================
     // even though these functions are called from different classes,
     // they all will be called from the same thread.
     // 

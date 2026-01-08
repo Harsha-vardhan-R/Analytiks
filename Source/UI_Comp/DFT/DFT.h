@@ -21,12 +21,14 @@
 
 using namespace juce;
 
+#define MAX_BUFFER_SIZE 8192
 #define INPUT_RING_BUFFER_SIZE 8192 * 4
+#define MAX_ACCUMULATED 32
 
 // pfft wrapper to be used in this project.
 // takes audio samples, returns amplitude as a callback when available..
 // on changing the fft order this class listens to the changes and automatically 
-// apply them from the next process block
+// apply them from the next process block.
 class PFFFT
 {
 public:
@@ -38,6 +40,7 @@ public:
 
     std::array<Component*, 2> getSpectrogramAndAnalyser();
 
+
     void cleanAllContainers();
 
     // automatically triggers the spectogram's and the analysers
@@ -47,8 +50,9 @@ public:
     static void calculateAmplitudesFromFFT(float* input, float* output, int numSamples);
    
 private:
+    std::array<std::vector<float>, MAX_ACCUMULATED> processed_amplitude_data;
 
-    linkDS linker;
+    // linkDS linker; // for future use.
 
     std::unique_ptr<SpectrogramComponent> spectrogram_component;
     std::unique_ptr<SpectrumAnalyserComponent> spectral_analyser_component;
@@ -119,19 +123,19 @@ private:
     // Once there are enough samples.
     std::vector<float> amplitude_buffer;
 
-    //// some assumptions to store the history.
-    //// These are used to approximate the size of history buffers needed to be 
-    //// when they are initialised.
+    /// some assumptions to store the history.
+    /// These are used to approximate the size of history buffers needed to be 
+    /// when they are initialised.
     //const float MAX_BPM = 240;
     //const float MIN_BPM = 60;
-    //// one bar is the biggest selection.
-    //// can select upto 4 bars here and with 64 multiple you would be watching 
-    //// 256 bars of history.
+    /// one bar is the biggest selection.
+    /// can select upto 4 bars here and with 64 multiple you would be watching 
+    /// 256 bars of history.
     //const float MAX_FRACTION = 2.0;
     //const float MAX_MULTIPLE = 64.0;
     //const float MAX_SAMPLE_RATE = 96000.0;
 
-    //// minimum number of frames at each given FFT size based on the above values.
+    /// minimum number of frames at each given FFT size based on the above values.
     //const std::vector<int> NUM_FRAMES{
     //    static_cast<int>((MAX_SAMPLE_RATE / static_cast<float>(SUPPORTED_FFT_SIZES[0]))
     //            * (1.0f / overlap_amnt) * (MAX_FRACTION * MAX_MULTIPLE * (1.0f / MIN_BPM))),

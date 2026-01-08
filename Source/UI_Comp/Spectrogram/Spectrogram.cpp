@@ -1,11 +1,14 @@
 #include "Spectrogram.h"
 
 SpectrogramComponent::SpectrogramComponent(
-    AudioProcessorValueTreeState& apvts_reference
-    , linkDS& lnk_reference)
-    : linker_ref(lnk_reference),
-    apvts_ref(apvts_reference)
+    AudioProcessorValueTreeState& apvts_reference)
+    : apvts_ref(apvts_reference)
 {
+}
+
+void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data, int valid, int numBins)
+{
+    numValidBins = numBins;
 }
 
 void SpectrogramComponent::paint(Graphics& g)

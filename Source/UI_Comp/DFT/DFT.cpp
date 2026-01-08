@@ -1,22 +1,34 @@
 #include "DFT.h"
 
 std::function<int(int)> PFFFT::powToTwo = 
-    [](int power) -> int { return 2 << (power - 1); };
+    [](int power) -> int { return 1 << power; };
+
+std::function<void(string)> callback = 
+    [](string msg) -> void { DBG(msg); };
 
 PFFFT::PFFFT(
     AudioProcessorValueTreeState& apvts_reference)
-    :   spectral_analyser_component(std::make_unique<SpectrumAnalyserComponent>(apvts_reference, linker)),
-        spectrogram_component(std::make_unique<SpectrogramComponent>(apvts_reference, linker)),
+    :   spectral_analyser_component(std::make_unique<SpectrumAnalyserComponent>(apvts_reference, callback)),
+        spectrogram_component(std::make_unique<SpectrogramComponent>(apvts_reference)),
         apvts_ref(apvts_reference)
 {
 
-    DBG("FFT Engine SIMD size : " + String(pffft_simd_size()));
+    cout << "FFT Engine SIMD size : " + String(pffft_simd_size()) << "\n";
 
     amplitude_buffer.resize(SUPER_SET_SIZE);
     ring_buffer.resize(INPUT_RING_BUFFER_SIZE);
 
+    for (int i = 0; i < MAX_ACCUMULATED; ++i) {
+        processed_amplitude_data[i].resize(MAX_BUFFER_SIZE);  // or max bin count
+    }
+
     for (int n = 0; n < NUM_SUPPORTED_N; ++n)
     {
+        if (!pffft_setups[n]) {
+            std::cerr << "FFT setup creation failed at index " << n << "\n";
+            std::exit(EXIT_FAILURE); // kaboooom
+        }
+
         windows.push_back(std::vector<float>());
         windows[n].resize(SUPPORTED_FFT_SIZES[n]);
 
@@ -70,9 +82,11 @@ void PFFFT::processBlock(float* input, int numSamples)
 
     int FFT_order = apvts_ref.getRawParameterValue("gb_fft_ord")->load();
 
-    auto it = SUPPPORTED_N_INDEX.find(FFT_order);
-    if (it == SUPPPORTED_N_INDEX.end())
+    auto it = SUPPPORTED_N_INDEX.find(FFT_order + 9);
+    if (it == SUPPPORTED_N_INDEX.end()) {
+        std::cout << "Unsupported FFT order requested : " << FFT_order << "\n";
         return; // Invalid order
+    }
 
     int fft_index = it->second;
     int fft_size = SUPPORTED_FFT_SIZES[fft_index];
@@ -87,6 +101,8 @@ void PFFFT::processBlock(float* input, int numSamples)
         ring_buffer[WriteIndex] = input[i];
         WriteIndex = (WriteIndex + 1) % ring_buffer.size();
     }
+
+    int indx = 0;
 
     // Process as many frames as possible
     while (true)
@@ -113,7 +129,22 @@ void PFFFT::processBlock(float* input, int numSamples)
 
         ReadIndex = (ReadIndex + hop_size) % ring_buffer.size();
 
-        linker.addNewData(amplitude_buffer.data(), fft_size);
+        auto& vec_reference = processed_amplitude_data[indx];
+        for (int bin = 0; bin < num_bins; ++bin) {
+            vec_reference[bin] = amplitude_buffer[bin];
+        }
+        
+        indx++;
+
+        if (indx >= MAX_ACCUMULATED) {
+            std::cerr << "Processed amplitude data buffer overflow\n";
+            break;
+        }
+    }
+
+    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1);
+    for (int i = 0; i < indx; ++i) {
+        spectral_analyser_component->newData(processed_amplitude_data[i].data(), (fft_size / 2) + 1);
     }
 }
 
@@ -126,6 +157,21 @@ void PFFFT::calculateAmplitudesFromFFT(float* input, float* output, int numSampl
         float real = input[2 * bin];
         float imag = input[2 * bin + 1];
         output[bin] = std::sqrt(real * real + imag * imag);
+    }
+
+    for (int bin = 0; bin < num_bins; ++bin) {
+        output[bin] /= (float)numSamples;
+
+        // output is sent as a dB map that is normalised to 0.0 to 1.0,
+        // because both the analyser and the spectrogram expect that.
+        output[bin] = 
+            jmap<float> ( 
+                20.0f * log10f(std::clamp<float>(output[bin], 0.0, 1.0) + 1e-4f),
+                -80,
+                0,
+                0,
+                1);
+
     }
 }
 

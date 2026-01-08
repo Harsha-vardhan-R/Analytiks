@@ -134,9 +134,9 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_width",   
-        "Plugin Width",   
-        NormalisableRange<float>(MIN_WIDTH,  MAX_WIDTH),  
-        DEFAULT_WIDTH, 
+        "Plugin Width",
+        NormalisableRange<float>((float)MIN_WIDTH, (float)MAX_WIDTH),  
+        (float)DEFAULT_WIDTH, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_height",  
@@ -147,7 +147,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     // UI Accent Hue colour.
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_acc_hue",   
-        "UI Accent Hue", 
+        "UI Accent Hue",
         NormalisableRange<float>(0.0, 1.0),    
         0.9, 
         float_param_attributes));
@@ -193,15 +193,6 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         viewMode.at("Scroll"),
         choice_param_attributes));
     layout.add(std::make_unique<AudioParameterChoice>(
-        "gb_vw_ortn", 
-        "View Orientation",
-        StringArray(
-            "Normal",
-            "Rotated"
-        ),
-        viewOrientation.at("Normal"),
-        choice_param_attributes));
-    layout.add(std::make_unique<AudioParameterChoice>(
         "gb_fft_ord",
         "FFT Order",
         StringArray(
@@ -229,22 +220,15 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         10.0,
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_rng",
-        "Spectrum Frequncy Range[Hz]",
-        NormalisableRange<float>(0.1, 1.0), 
-        1.0, 
+        "sp_rng_max",
+        "Spectrum Frequncy Range Max[Hz]",
+        NormalisableRange<float>(10.0, 20000.0), 
+        20000.0, 
         float_param_attributes));
-    // add an accent colour to the spectrum analyser.
-    layout.add(std::make_unique<AudioParameterBool>(
-        "sp_accent",
-        "Colourise Spectrum",
-        false,
-        bool_param_attributes));
-
 
     AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
         [](int value, int max_str_length) -> String {
-            if (value > 255) return String("Line");
+            if (value > 511) return String("Line");
             else return String(value);
         });
     // number of bars to be shown, at exactly 256 we consider this a line graph, so max 255 bars.
@@ -252,7 +236,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         "sp_num_brs", 
         "Number of Bars", 
         3, 
-        256, 
+        512, 
         128, 
         int_param_attributes_num_bars
     ));
@@ -264,27 +248,8 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_bar_spd", 
         "Spectrum Bar Speed[ms]", 
-        NormalisableRange<float>(1.0, 2000.0), 
-        100.0, 
-        float_param_attributes));
-    // when less than 0.5 ms the peak hold line will not be visible.
-    layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_pek_hld", 
-        "Spectrum peak hold[ms]", 
-        NormalisableRange<float>(0.0, 2000.0), 
-        100.0, 
-        float_param_attributes));
-    // want highlighting ?
-    layout.add(std::make_unique<AudioParameterBool>(
-        "sp_high", 
-        "Spectrum highlighting", 
-        true, 
-        bool_param_attributes));
-    layout.add(std::make_unique<AudioParameterFloat>(
-        "sp_high_tm", 
-        "Spectrum highlighting time[ms]", 
-        NormalisableRange<float>(0.0, 2000.0), 
-        100.0, 
+        NormalisableRange<float>(0.01, 15.0), 
+        1.0, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_high_gt", 
@@ -339,12 +304,6 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
     // oscilloscope, phase correlation stuff.
-    // higlighting happens based on the volume calculated by the 
-    layout.add(std::make_unique<AudioParameterBool>(
-        "os_high", 
-        "Oscilloscope highlighting", 
-        true, 
-        bool_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "v_rms_time", 
         "RMS window length[ms]", 
