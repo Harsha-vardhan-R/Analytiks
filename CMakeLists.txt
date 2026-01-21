@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Analytiks VERSION 0.0.5)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(JUCE)
-
 if(WIN32)
     set(CMAKE_GENERATOR_PLATFORM x64)
 endif()
+
+project(Analytiks VERSION 0.0.5)
+
+add_subdirectory(JUCE)
 
 file(GLOB_RECURSE SOURCE_FILES
     "Source/*.cpp"

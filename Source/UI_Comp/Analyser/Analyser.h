@@ -10,7 +10,7 @@
 using namespace juce;
 
 #define AMPLITUDE_DATA_SIZE 8192
-#define REFRESH_RATE 90
+#define REFRESH_RATE 60
 
 class SpectrumAnalyserComponent
     : public Component,
@@ -177,7 +177,12 @@ private:
             float bar     = step(uv.x, amp);
             float ribbonB = step(uv.x, ribbon) * 0.4;
 
+            
+
             vec3 colour = mix(colorMap_lower, colorMap_higher, amp);
+
+            if (fract(uv.x * 7.0) > 0.98)
+                colour *= 0.0;
 
             gl_FragColor = vec4(colour * (bar + ribbonB), 1.0);
         }

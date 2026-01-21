@@ -141,8 +141,8 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_height",  
         "Plugin Height",  
-        NormalisableRange<float>(MIN_HEIGHT, MAX_HEIGHT), 
-        DEFAULT_HEIGHT, 
+        NormalisableRange<float>((float)MIN_HEIGHT, (float)MAX_HEIGHT), 
+        (float)DEFAULT_HEIGHT, 
         float_param_attributes));
     // UI Accent Hue colour.
     layout.add(std::make_unique<AudioParameterFloat>( 
@@ -226,17 +226,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         20000.0, 
         float_param_attributes));
 
-    AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes.withStringFromValueFunction(
-        [](int value, int max_str_length) -> String {
-            if (value > 511) return String("Line");
-            else return String(value);
-        });
+    AudioParameterIntAttributes int_param_attributes_num_bars = int_param_attributes;
     // number of bars to be shown, at exactly 256 we consider this a line graph, so max 255 bars.
     layout.add(std::make_unique<AudioParameterInt>(
         "sp_num_brs", 
         "Number of Bars", 
         3, 
-        512, 
+        1024, 
         128, 
         int_param_attributes_num_bars
     ));
@@ -265,13 +261,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         "sg_cm_bias", 
         "Spectrum colourmap bias", 
         NormalisableRange<float>(0.0, 1.0), 
-        0.0, 
+        0.01, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_curv", 
         "Spectrum colourmap curve", 
         NormalisableRange<float>(-1.0, 1.0), 
-        0.0, 
+        0.2, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterBool>(
         "sg_high_res", 
@@ -346,7 +342,36 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    auto playHead = getPlayHead();
+
+    float bpm = 120.0f; 
+    int timeSigNum = 4;
+    int timeSigDen = 4;
+    
+    if (playHead) {
+        auto position = playHead->getPosition();
+        
+        if (position) {
+            auto tmp_bpm = position->getBpm();
+
+            if (tmp_bpm.hasValue())
+                bpm = (float)*tmp_bpm;
+            else 
+                DBG("BPM couldn't be retrieved, Defaulting to 120.0");
+            
+            if (playHead != nullptr) {
+                if (auto pos = playHead->getPosition()) {
+                    if (auto ts = pos->getTimeSignature()) {
+                        timeSigNum = ts->numerator;
+                        timeSigDen = ts->denominator;
+                    }
+                }
+            }
+        }
+    }
+
     int present_channel = apvts.getRawParameterValue("gb_chnl")->load();
+    bool listen_enabled = static_cast<bool>((int)apvts.getRawParameterValue("gb_listen")->load());
 
     const float* left_channel_data = buffer.getReadPointer(0);
     const float* right_channel_data = buffer.getReadPointer(1);
@@ -384,15 +409,37 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
                 temp_buffer[sample] = (left_channel_data[sample] - right_channel_data[sample]) * 0.5;
             }
         }
-    
+
         // the callbacks from this will update both the analyser and the spectrogram.
-        fft_engine->processBlock(temp_buffer.data(), number_of_samples);
+        // temp_buffer is taken as a const float* to avoid accidental modification.
+        float SR = (float)(getSampleRate() > 0.0 ? getSampleRate() : 44100.0);
+        fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
+
+        if (listen_enabled) {
+            if (present_channel == 0) {
+                // do nothing, both channels are already there.
+            } else if (present_channel == 1) {
+                // left only
+                buffer.copyFrom(1, 0, buffer, 0, 0, number_of_samples);
+            } else if (present_channel == 2) {
+                // right only
+                buffer.copyFrom(0, 0, buffer, 1, 0, number_of_samples);
+            } else {
+                // side only
+                for (int sample = 0; sample < number_of_samples; ++sample) {
+                    float side = (left_channel_data[sample] - right_channel_data[sample]) * 0.5;
+                    buffer.setSample(0, sample, side);
+                    buffer.setSample(1, sample, side);
+                }
+            }
+        }
 
         // update the correlation meter and the oscilloscope here.
         phase_correlation_component->processBlock(buffer);
+        // oscilloscope_component->processBlock(buffer);
     }
 
-    if (!apvts.getRawParameterValue("gb_listen")->load())
+    if (!listen_enabled)
     {
         buffer.setNotClear();
         for (auto i = 0; i < totalNumOutputChannels; ++i)

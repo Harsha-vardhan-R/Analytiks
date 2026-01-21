@@ -19,6 +19,8 @@
 
 #include "../../../rwqueue/readerwritercircularbuffer.h"
 
+#include "../util.h"
+
 using namespace juce;
 
 #define MAX_BUFFER_SIZE 8192
@@ -45,7 +47,7 @@ public:
 
     // automatically triggers the spectogram's and the analysers
     // repaint methods.
-    void processBlock(float* input, int numSamples);
+    void processBlock(const float* input, int numSamples, float bpm, float SR, int N, int D);
 
     static void calculateAmplitudesFromFFT(float* input, float* output, int numSamples);
    
@@ -67,7 +69,12 @@ private:
     int tick = 0;
     static std::function<int(int)> powToTwo;
 
-    float overlap_amnt = 0.5;
+    //// float overlap_amnt = 0.5;
+    
+    // Hop size will be same irrespective of fft size,
+    // so for bigger fft sizes we have more overlap percentage wise,
+    // and we need more processing power.
+    float overlap_samples = HOP_SIZE;
 
     // 5 possible orders. here N => order of the fft.
     const int NUM_SUPPORTED_N = 5;

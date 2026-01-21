@@ -26,7 +26,7 @@ PFFFT::PFFFT(
     {
         if (!pffft_setups[n]) {
             std::cerr << "FFT setup creation failed at index " << n << "\n";
-            std::exit(EXIT_FAILURE); // kaboooom
+            std::exit(EXIT_FAILURE); // kaboooom, >..<
         }
 
         windows.push_back(std::vector<float>());
@@ -73,7 +73,7 @@ void PFFFT::cleanAllContainers()
 
 }
 
-void PFFFT::processBlock(float* input, int numSamples)
+void PFFFT::processBlock(const float* input, int numSamples, float bpm, float SR, int N, int D)
 {
     // if we can't see both analyser and the spectrogram - 
     // there is not a need to calculate this.
@@ -93,7 +93,8 @@ void PFFFT::processBlock(float* input, int numSamples)
     PFFFT_Setup* setup = pffft_setups[fft_index];
     auto& windowing_array = windows[fft_index];
 
-    int hop_size = static_cast<int>(fft_size * (1.0f - overlap_amnt));
+    // int hop_size = static_cast<int>(fft_size * (1.0f - overlap_amnt));
+    int hop_size = overlap_samples;
 
     // write new data to ring buff.
     for (int i = 0; i < numSamples; ++i)
@@ -142,7 +143,7 @@ void PFFFT::processBlock(float* input, int numSamples)
         }
     }
 
-    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1);
+    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
     for (int i = 0; i < indx; ++i) {
         spectral_analyser_component->newData(processed_amplitude_data[i].data(), (fft_size / 2) + 1);
     }
