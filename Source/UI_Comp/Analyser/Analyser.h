@@ -110,7 +110,7 @@ private:
         uniform float sampleRate;
         uniform float minFreq;
         uniform float maxFreq;
-        
+
         float freqFromNorm(float t)
         {
             return minFreq * pow(maxFreq / minFreq, t);
@@ -122,10 +122,21 @@ private:
             return int(freq * fftSize / sampleRate);
         }
 
+        float fetch1DLinear(sampler1D tex, float binF)
+        {
+            binF = clamp(binF, 0.0, float(numBins - 1));
+            int b0 = int(floor(binF));
+            int b1 = min(b0 + 1, numBins - 1);
+            float t = fract(binF);
+
+            float v0 = texelFetch(tex, b0, 0).r;
+            float v1 = texelFetch(tex, b1, 0).r;
+            return mix(v0, v1, t);
+        }
+
         void main()
         {
             float separatorThreshold = 0.3;
-
             vec2 uv = gl_FragCoord.xy / resolution.xy;
 
             float barHeight = 1.0 / float(numBars);
@@ -140,8 +151,6 @@ private:
             if (pixelsPerBar >= (1.0 / separatorThreshold))
             {
                 float localY = fract(uv.y / barHeight);
-
-                // 1-pixel separator in UV space
                 float separatorUV = 1.0 / resolution.y;
 
                 if (localY < separatorUV / barHeight)
@@ -151,36 +160,49 @@ private:
                 }
             }
 
+            // ---- IMPORTANT: integrate the full bar band (matches spectrogram axis) ----
             float t0 = float(barIndex)     / float(numBars);
             float t1 = float(barIndex + 1) / float(numBars);
 
             float f0 = freqFromNorm(t0);
             float f1 = freqFromNorm(t1);
 
-            int binStart = clamp(binFromFreq(f0), 0, numBins - 1);
-            int binEnd   = clamp(binFromFreq(f1), binStart + 1, numBins);
+            // clamp to visible range
+            f0 = clamp(f0, minFreq, maxFreq);
+            f1 = clamp(f1, minFreq, maxFreq);
 
+            if (f1 <= f0)
+                discard;
+
+            float fftSize = float(2 * (numBins - 1));
+
+            float binF0 = clamp(f0 * fftSize / sampleRate, 0.0, float(numBins - 1));
+            float binF1 = clamp(f1 * fftSize / sampleRate, 0.0, float(numBins - 1));
+
+            if (binF1 <= binF0)
+                binF1 = min(binF0 + 1.0, float(numBins - 1));
+
+            // sample a few points inside the band and take MAX (better for peaks)
+            // this avoids losing high frequency content
+            const int S = 6;
             float amp = 0.0;
             float ribbon = 0.0;
-            float count = 0.0;
 
-            for (int i = binStart; i < binEnd; ++i)
+            for (int s = 0; s < S; ++s)
             {
-                amp    += texelFetch(amplitudeData, i, 0).r;
-                ribbon += texelFetch(ribbonData,    i, 0).r;
-                count  += 1.0;
-            }
+                float u = (float(s) + 0.5) / float(S);
+                float bf = mix(binF0, binF1, u);
 
-            amp    /= max(count, 1.0);
-            ribbon /= max(count, 1.0);
+                amp    = max(amp,    fetch1DLinear(amplitudeData, bf));
+                ribbon = max(ribbon, fetch1DLinear(ribbonData, bf));
+            }
 
             float bar     = step(uv.x, amp);
             float ribbonB = step(uv.x, ribbon) * 0.4;
 
-            
-
             vec3 colour = mix(colorMap_lower, colorMap_higher, amp);
 
+            // your vertical grid lines
             if (fract(uv.x * 7.0) > 0.98)
                 colour *= 0.0;
 

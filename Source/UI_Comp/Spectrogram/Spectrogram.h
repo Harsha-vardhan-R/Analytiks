@@ -82,7 +82,8 @@ private:
             sampleRate,
             scroll,
             bias,
-            curve;
+            curve,
+            blur;
 
     private:
         static OpenGLShaderProgram::Uniform* createUniform(
@@ -192,13 +193,37 @@ private:
             binEnd   = clamp(binEnd,   0, numBins);
 
             float value = 0.0;
+            float wsum  = 0.0;
 
-            for (int b = binStart; b < binEnd; ++b)
+            const int R = 1;
+
+            for (int i = -R; i <= R; ++i)
             {
-                float v0 = texelFetch(imageData, ivec2(col0, b), 0).r;
-                float v1 = texelFetch(imageData, ivec2(col1, b), 0).r;
-                value = max(value, max(v0, v1));
+                float yy = clamp(uv.y + float(i) * pixelY, 0.0, 1.0);
+                float w  = exp(-float(i*i) * 0.6);
+
+                float f = freqFromNorm(yy);
+
+                float fftSize = float(2 * (numBins - 1));
+                float binF = clamp(f * fftSize / sampleRate, 0.0, float(numBins - 1));
+
+                int b0 = int(floor(binF));
+                int b1 = min(b0 + 1, numBins - 1);
+                float t = fract(binF);
+
+                float c00 = texelFetch(imageData, ivec2(col0, b0), 0).r;
+                float c01 = texelFetch(imageData, ivec2(col0, b1), 0).r;
+                float c10 = texelFetch(imageData, ivec2(col1, b0), 0).r;
+                float c11 = texelFetch(imageData, ivec2(col1, b1), 0).r;
+
+                float v0 = mix(c00, c01, t);
+                float v1 = mix(c10, c11, t);
+
+                value += max(v0, v1) * w;
+                wsum  += w;
             }
+
+            value /= max(wsum, 1e-6);
 
             float curvedValue = sCurve(value, curve);
             vec3 colour = mix(colorMap_lower, colorMap_higher, curvedValue);

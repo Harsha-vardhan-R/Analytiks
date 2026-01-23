@@ -41,7 +41,7 @@ public:
     ~PFFFT();
 
     std::array<Component*, 2> getSpectrogramAndAnalyser();
-
+    void prepareToPlay(double sampleRate, int samplesPerBlock);
 
     void cleanAllContainers();
 

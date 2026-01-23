@@ -40,17 +40,43 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     numValidBins = numBins;
     int fft_size = (numBins - 1) * 2;
     float fft_bar_measure = apvts_ref.getRawParameterValue("sp_measure")->load();
-    int fft_bar_multiple = apvts_ref.getRawParameterValue("sp_multiple")->load();
+    float fft_bar_multiple = apvts_ref.getRawParameterValue("sp_multiple")->load();
     int hop_size = HOP_SIZE;
 
-    float history_length_in_bars = (float)(powf(2.0, fft_bar_measure - 5.0) * fft_bar_multiple);
+    // float history_length_in_bars = (float)(powf(2.0, fft_bar_measure - 5.0) * fft_bar_multiple);
 
     // number of frames per column of spectrogram image data.
+    // float frames_per_column =
+    //     (((history_length_in_bars * 60.0f * (float)N) / bpm)
+    //     * (sample_rate / hop_size)) / (float)SPECTROGRAM_MAX_WIDTH;
+
+    static const float measureTable[] = {
+        1.0f / 4.0f,
+        1.0f / 3.0f,
+        1.0f / 7.0f,
+        1.0f / 5.0f
+    };
+
+    float barsPerWindow =
+        measureTable[(int)fft_bar_measure] * fft_bar_multiple;
+
+    float secondsPerBar =
+        (60.0f / bpm) * N;
+
+    float historySeconds =
+        barsPerWindow * secondsPerBar;
+
+    float fftFramesPerSecond =
+        sample_rate / hop_size;
+
     float frames_per_column =
-        (((fft_bar_multiple * 60.0f * N) / bpm)
-        * (sample_rate / hop_size)) / (float)SPECTROGRAM_MAX_WIDTH;
+        (historySeconds * fftFramesPerSecond)
+        / (float)SPECTROGRAM_MAX_WIDTH;
 
     int id = 0;
+
+    // cout << "History seconds: " << historySeconds << endl;
+    // cout << "Frames/column: " << frames_per_column << endl;
 
     while (id < valid) {
         for (int bin = 0; bin < numBins; ++bin)
@@ -75,14 +101,14 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
 
             if (accumulator >= 1.0f) {
                 accumulator -= 1.0f;
-
-                writeIndex = (writeIndex + 1) % SPECTROGRAM_MAX_WIDTH;
-                validColumnsInData = jmin(validColumnsInData + 1, SPECTROGRAM_MAX_WIDTH);
-                for (int bin = 0; bin < numValidBins; ++bin)
-                    spectrogram_data[bin][writeIndex] = 0.0f;
+                id++;
             }
 
-            id++;
+            writeIndex = (writeIndex + 1) % SPECTROGRAM_MAX_WIDTH;
+            validColumnsInData = jmin(validColumnsInData + 1, SPECTROGRAM_MAX_WIDTH);
+            for (int bin = 0; bin < numValidBins; ++bin)
+                spectrogram_data[bin][writeIndex] = 0.0f;
+
         }
     }
 
@@ -196,6 +222,9 @@ void SpectrogramComponent::renderOpenGL()
     if (shader_uniforms->curve)
         shader_uniforms->curve->set(apvts_ref.getRawParameterValue("sg_cm_curv")->load());
 
+    if (shader_uniforms->blur)
+        shader_uniforms->blur->set(((bool)apvts_ref.getRawParameterValue("sg_high_res")->load() == false) ? (GLfloat)0.2f : (GLfloat)0.0f);
+    
     const float* clr = getAccentColoursForCode(
         (int)apvts_ref.getRawParameterValue("gb_clrmap")->load());
 
@@ -289,6 +318,7 @@ SpectrogramComponent::Uniforms::Uniforms(OpenGLContext& OpenGL_Context, OpenGLSh
     scroll.reset(createUniform(OpenGL_Context, shader_program, "scroll"));
     bias.reset(createUniform(OpenGL_Context, shader_program, "bias"));
     curve.reset(createUniform(OpenGL_Context, shader_program, "curve"));
+    blur.reset(createUniform(OpenGL_Context, shader_program, "blur"));
 }
 
 OpenGLShaderProgram::Uniform* SpectrogramComponent::Uniforms::createUniform(

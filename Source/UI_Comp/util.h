@@ -2,7 +2,7 @@
 #pragma once
 #include <algorithm>
 
-#define HOP_SIZE 256
+#define HOP_SIZE 458
 
 using namespace std;
 

@@ -105,6 +105,7 @@ private:
     std::vector<float> temp_buffer;
 
     std::unique_ptr<PFFFT> fft_engine;
+    float SR = 44100.0f;
     
     std::unique_ptr<OscilloscopeComponent> oscilloscope_component;
     std::unique_ptr<PhaseCorrelationAnalyserComponent> phase_correlation_component;

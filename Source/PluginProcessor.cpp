@@ -96,6 +96,8 @@ void AnalytiksAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     /*spectral_analyser_component->prepareToPlay(sampleRate, samplesPerBlock);
     spectrogram_component->prepareToPlay(sampleRate, samplesPerBlock);
     oscilloscope_component->prepareToPlay(sampleRate, samplesPerBlock);*/
+    SR = (float)sampleRate;
+    fft_engine->prepareToPlay(sampleRate, samplesPerBlock);
     phase_correlation_component->prepareToPlay(sampleRate, samplesPerBlock);
 }
 
@@ -278,24 +280,19 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
             "sp_measure",
             "History Window Bars",
             StringArray(
-                "1/32",
-                "1/16",
-                "1/8",
                 "1/4",
-                "1/2",
-                "1",
-                "2",
-                "4"
+                "1/3",
+                "1/7",
+                "1/5"
             ),
-            3,
+            0,
             choice_param_attributes));
-        layout.add(std::make_unique<AudioParameterInt>(
+        layout.add(std::make_unique<AudioParameterFloat>(
             "sp_multiple",
             "History Window Multiple",
-            1,
-            64,
-            16,
-            int_param_attributes));
+            NormalisableRange<float>(0.001f, 64.0f),
+            16.0f,
+            float_param_attributes));
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////
@@ -412,7 +409,6 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
 
         // the callbacks from this will update both the analyser and the spectrogram.
         // temp_buffer is taken as a const float* to avoid accidental modification.
-        float SR = (float)(getSampleRate() > 0.0 ? getSampleRate() : 44100.0);
         fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
 
         if (listen_enabled) {

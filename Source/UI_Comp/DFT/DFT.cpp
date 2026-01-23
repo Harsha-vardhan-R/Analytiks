@@ -63,6 +63,11 @@ std::array<Component*, 2> PFFFT::getSpectrogramAndAnalyser()
     return arr;
 }
 
+void PFFFT::prepareToPlay(double sampleRate, int samplesPerBlock)
+{
+    spectral_analyser_component->prepareToPlay(sampleRate, samplesPerBlock);
+}
+
 void PFFFT::cleanAllContainers()
 {
     for (auto& value : ring_buffer)

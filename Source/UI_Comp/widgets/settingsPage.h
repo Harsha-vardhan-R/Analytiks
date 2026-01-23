@@ -81,7 +81,7 @@ public:
         num_bars_slider_label.setText("Number of Bars", juce::dontSendNotification);
         bar_speed_slider_label.setText("Bar Speed(ms)", juce::dontSendNotification);
         spec_higlight_gate_slider_label.setText("Gate(dB)", juce::dontSendNotification);
-        colourmap_bias_slider_label.setText("Bias", juce::dontSendNotification);
+        colourmap_bias_slider_label.setText("Gate", juce::dontSendNotification);
         colourmap_curve_slider_label.setText("Curve", juce::dontSendNotification);
         volume_rms_time_label.setText("Volume RMS Window(ms)", juce::dontSendNotification);
         listen_button_label.setText("Listen", juce::dontSendNotification);
@@ -89,8 +89,8 @@ public:
         channel_combobox_label.setText("Channel", juce::dontSendNotification);
         scrollmode_combobox_label.setText("Scrolling", juce::dontSendNotification);
         fftorder_combobox_label.setText("FFT order", juce::dontSendNotification);
-        spec_history_multiply_slider_label.setText("Multiple", juce::dontSendNotification);
-        measure_combobox_label.setText("Bars", juce::dontSendNotification);
+        measure_combobox_label.setText("Base Measure", juce::dontSendNotification);
+        spec_history_multiply_slider_label.setText("Multiple(history : Base Measure*Multiple)", juce::dontSendNotification);
         freq_rng_min_label.setText("Min Freq (Hz)", juce::dontSendNotification);
         freq_rng_max_label.setText("Max Freq (Hz)", juce::dontSendNotification);
 
@@ -266,7 +266,7 @@ public:
         auto slider_height = 0.02 * bounds.getHeight();
         auto label_height = slider_height;
         auto heading_label_height = label_height*1.4;
- 
+
         auto padding = 0.1 * slider_height;
 
         for (auto label_ : {
@@ -343,12 +343,12 @@ public:
 
         bounds.removeFromTop(10);
         spectrogram_settings_label.setBounds(bounds.removeFromTop(heading_label_height));
-
-        colourmap_bias_slider_label.setBounds(bounds.removeFromTop(label_height));
-        colourmap_bias_slider.setBounds(bounds.removeFromTop(slider_height));
         
         colourmap_curve_slider_label.setBounds(bounds.removeFromTop(label_height));
         colourmap_curve_slider.setBounds(bounds.removeFromTop(slider_height));
+
+        colourmap_bias_slider_label.setBounds(bounds.removeFromTop(label_height));
+        colourmap_bias_slider.setBounds(bounds.removeFromTop(slider_height));
 
         measure_combobox_label.setBounds(bounds.removeFromTop(label_height));
         measure_combobox.setBounds(bounds.removeFromTop(slider_height));
@@ -367,7 +367,7 @@ public:
 private:
     AudioProcessorValueTreeState& apvts_ref;
 
-    LookAndFeel_V3 styles;
+    LookAndFeel_V4 styles;
 
     Label
 
@@ -434,7 +434,7 @@ private:
         scrollmode_combobox_attachment,
         fftorder_combobox_attachment,
         measure_combobox_attachment;
-        
+
     std::unique_ptr<ButtonParameterAttachment>
         listen_button_attachment;
 
