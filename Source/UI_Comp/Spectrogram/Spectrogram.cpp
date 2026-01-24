@@ -163,6 +163,27 @@ void SpectrogramComponent::newOpenGLContextCreated()
         spectrogram_data
     );
 
+    glGenTextures(1, &colourMapTexture);
+    glBindTexture(GL_TEXTURE_1D, colourMapTexture);
+
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    const float* cmap = getColourMapForCode(
+        (int)apvts_ref.getRawParameterValue("gb_clrmap")->load()
+    );
+
+    glTexImage1D(GL_TEXTURE_1D,
+                0,
+                GL_RGB32F,
+                COLOUR_MAP_NUM_COLOURS,
+                0,
+                GL_RGB,
+                GL_FLOAT,
+                cmap);
+
     trigger_repaint = true;
 }
 
@@ -225,11 +246,7 @@ void SpectrogramComponent::renderOpenGL()
     if (shader_uniforms->blur)
         shader_uniforms->blur->set(((bool)apvts_ref.getRawParameterValue("sg_high_res")->load() == false) ? (GLfloat)0.2f : (GLfloat)0.0f);
     
-    const float* clr = getAccentColoursForCode(
-        (int)apvts_ref.getRawParameterValue("gb_clrmap")->load());
-
-    shader_uniforms->colorMap_lower->set(clr[0], clr[1], clr[2]);
-    shader_uniforms->colorMap_higher->set(clr[3], clr[4], clr[5]);
+    const float* clr = getColourMapForCode((int)apvts_ref.getRawParameterValue("gb_clrmap")->load());
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, dataTexture);
@@ -250,6 +267,20 @@ void SpectrogramComponent::renderOpenGL()
 
         new_data_flag = false;
     }
+    
+    if (shader_uniforms->colourMapTex)
+        shader_uniforms->colourMapTex->set(1);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_1D, colourMapTexture);
+
+    glTexSubImage1D(GL_TEXTURE_1D,
+                0,
+                0,
+                COLOUR_MAP_NUM_COLOURS,
+                GL_RGB,
+                GL_FLOAT,
+                clr);
 
     GLfloat verts[] = { 1,1, 1,-1, -1,-1, -1,1 };
     GLuint inds[]  = { 0,1,3, 1,2,3 };
@@ -281,6 +312,11 @@ void SpectrogramComponent::openGLContextClosing() {
     if (dataTexture)
         glDeleteTextures(1, &dataTexture);
 
+    if (colourMapTexture)
+        glDeleteTextures(1, &colourMapTexture);
+
+    colourMapTexture = 0;
+
     shader.reset();
     shader_uniforms.reset();
 }
@@ -307,8 +343,7 @@ SpectrogramComponent::Uniforms::Uniforms(OpenGLContext& OpenGL_Context, OpenGLSh
 {
     resolution.reset(createUniform(OpenGL_Context, shader_program, "resolution"));
     imageData.reset(createUniform(OpenGL_Context, shader_program, "imageData"));
-    colorMap_lower.reset(createUniform(OpenGL_Context, shader_program, "colorMap_lower"));
-    colorMap_higher.reset(createUniform(OpenGL_Context, shader_program, "colorMap_higher"));
+    colourMapTex.reset(createUniform(OpenGL_Context, shader_program, "colourMapTex"));
     numBins.reset(createUniform(OpenGL_Context, shader_program, "numBins"));
     startIndex.reset(createUniform(OpenGL_Context, shader_program, "startIndex"));
     numIndex.reset(createUniform(OpenGL_Context, shader_program, "numIndex"));

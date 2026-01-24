@@ -211,8 +211,8 @@ inline const AccentColours RAINBOW_ACCENT = {
 };
 
 inline const AccentColours HOT_ACCENT = {
-    1.00000f, 1.00000f, 1.00000f,
-    1.00000f, 1.00000f, 1.00000f
+    0.00010f, 0.00010f, 0.00010f,
+    1.00000f, 0.00000f, 0.00000f
 };
 
 inline const AccentColours COPPER_ACCENT = {

@@ -151,7 +151,7 @@ public:
                 &measure_combobox_label
             })
         {
-            label_->setColour(Label::ColourIds::textColourId, Colours::lightgrey);
+            label_->setColour(Label::ColourIds::textColourId, Colours::darkgrey);
         };
 
         for (auto label_ : {
@@ -254,7 +254,7 @@ public:
 
     void paint(Graphics& g) override
     {
-        g.fillAll(Colour::fromRGB(25, 25, 25));
+        g.fillAll(Colours::white);
     }
 
     void resized() override

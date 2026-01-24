@@ -72,8 +72,7 @@ private:
         std::unique_ptr<OpenGLShaderProgram::Uniform>
             resolution,
             imageData,
-            colorMap_lower,
-            colorMap_higher,
+            colourMapTex,
             numBins,
             startIndex,
             numIndex,
@@ -93,6 +92,7 @@ private:
     };
 
     GLuint dataTexture = 0;
+    GLuint colourMapTexture = 0;
     GLuint VBO = 0, EBO = 0;
 
     std::unique_ptr<OpenGLShaderProgram> shader;
@@ -109,8 +109,7 @@ private:
         uniform vec2 resolution;
         uniform sampler2D imageData;
 
-        uniform vec3 colorMap_lower;
-        uniform vec3 colorMap_higher;
+        uniform sampler1D colourMapTex;
 
         uniform int numBins;
         uniform int startIndex;
@@ -226,8 +225,9 @@ private:
             value /= max(wsum, 1e-6);
 
             float curvedValue = sCurve(value, curve);
-            vec3 colour = mix(colorMap_lower, colorMap_higher, curvedValue);
 
+            vec3 colour = texture(colourMapTex, clamp(curvedValue, 0.0, 1.0)).rgb;
+            
             if (curvedValue < bias)
                 colour *= 0.01;
 
