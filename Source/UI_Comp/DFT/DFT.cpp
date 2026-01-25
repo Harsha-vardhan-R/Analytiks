@@ -148,7 +148,12 @@ void PFFFT::processBlock(const float* input, int numSamples, float bpm, float SR
         }
     }
 
-    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
+    if (spectrogram_component->getWidth() != 0)
+        spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
+    
+    if (spectral_analyser_component->getWidth() == 0)
+        return;
+
     for (int i = 0; i < indx; ++i) {
         spectral_analyser_component->newData(processed_amplitude_data[i].data(), (fft_size / 2) + 1);
     }

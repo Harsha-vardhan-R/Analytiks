@@ -10,7 +10,7 @@ using namespace juce;
 // x, y interleaved.
 #define RING_BUFFER_SIZE 1024 
 #define RING_BUFFER_TEXEL_SIZE 512
-#define REFRESH_RATE_HZ 90
+#define REFRESH_RATE_HZ 100
 
 class PhaseCorrelationAnalyserComponent 
     :   public Component,
@@ -40,7 +40,7 @@ public:
     std::atomic<float> rms_time = 18; // in ms.
     std::atomic<float> sample_rate = 44100.0;
     std::atomic<int> window_length_samples = sample_rate * rms_time;
-    std::atomic<int> update_window_samples = sample_rate / (float)TARGET_TRIGGER_HZ;
+    std::atomic<int> update_window_samples = std::max<int>(sample_rate / (float)TARGET_TRIGGER_HZ, 2);
     int sample_counter = 0;
 
     // used to compute both the rms volume and the cosine similarity.

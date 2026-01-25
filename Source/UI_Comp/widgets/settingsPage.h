@@ -162,7 +162,8 @@ public:
                 &ocsilloscope_settings_label
             })
         {
-            label_->setColour(Label::ColourIds::backgroundColourId, Colours::darkgrey);
+            label_->setColour(Label::ColourIds::backgroundColourId, Colours::white);
+            label_->setColour(Label::ColourIds::outlineColourId, Colours::darkgrey);
             label_->setJustificationType(Justification::centred);
         };
 
@@ -245,7 +246,7 @@ public:
             slider_->setSliderStyle(Slider::SliderStyle::LinearBar);
             slider_->setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 15);
             slider_->setLookAndFeel(&styles);
-            slider_->setColour(Slider::ColourIds::textBoxTextColourId, Colours::black);
+            slider_->setColour(Slider::ColourIds::textBoxTextColourId, Colours::orange);
             slider_->setColour(Slider::ColourIds::backgroundColourId, Colours::white);
             slider_->setColour(Slider::ColourIds::thumbColourId, Colours::crimson);
         }

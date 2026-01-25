@@ -6,7 +6,7 @@
 // 12 points, rgb interleaved.
 #define COLOUR_MAP_SIZE 12*3
 #define COLOUR_MAP_NUM_COLOURS 12
-
+ 
 #define ACCENT_COLOURS_SIZE 2*3
 #define ACCENT_COLOURS_NUM_COLOURS 2
 
@@ -272,5 +272,122 @@ static const float* getAccentColoursForCode(int code)
     default:
         DBG("NO ACCENT COLOURS FOR THIS CODE : " + code);
         return getAccentData(INFERNO_ACCENT);
+    }
+}
+
+
+struct HSV { float h, s, v; };
+
+static inline float clamp01(float x) { return x < 0.f ? 0.f : (x > 1.f ? 1.f : x); }
+
+static inline HSV rgbToHsv(float r, float g, float b)
+{
+    float mx = std::max(r, std::max(g, b));
+    float mn = std::min(r, std::min(g, b));
+    float d  = mx - mn;
+
+    HSV out;
+    out.v = mx;
+
+    if (mx <= 1e-8f)
+    {
+        out.s = 0.f;
+        out.h = 0.f;
+        return out;
+    }
+
+    out.s = d / mx;
+
+    if (d <= 1e-8f)
+    {
+        out.h = 0.f;
+        return out;
+    }
+
+    if (mx == r)      out.h = (g - b) / d + (g < b ? 6.f : 0.f);
+    else if (mx == g) out.h = (b - r) / d + 2.f;
+    else              out.h = (r - g) / d + 4.f;
+
+    out.h /= 6.f;
+    return out;
+}
+
+static inline void hsvToRgb(float h, float s, float v, float& r, float& g, float& b)
+{
+    h = h - std::floor(h); // wrap
+
+    float c = v * s;
+    float x = c * (1.f - std::abs(std::fmod(h * 6.f, 2.f) - 1.f));
+    float m = v - c;
+
+    float rr=0, gg=0, bb=0;
+
+    float hh = h * 6.f;
+    if      (hh < 1.f) { rr = c; gg = x; bb = 0; }
+    else if (hh < 2.f) { rr = x; gg = c; bb = 0; }
+    else if (hh < 3.f) { rr = 0; gg = c; bb = x; }
+    else if (hh < 4.f) { rr = 0; gg = x; bb = c; }
+    else if (hh < 5.f) { rr = x; gg = 0; bb = c; }
+    else               { rr = c; gg = 0; bb = x; }
+
+    r = clamp01(rr + m);
+    g = clamp01(gg + m);
+    b = clamp01(bb + m);
+}
+
+static inline ColourMap makeBrightColourMap(const ColourMap& in)
+{
+    ColourMap out = in;
+
+    for (int i = 0; i < COLOUR_MAP_NUM_COLOURS; ++i)
+    {
+        float r = in[i * 3 + 0];
+        float g = in[i * 3 + 1];
+        float b = in[i * 3 + 2];
+
+        HSV hsv = rgbToHsv(r, g, b);
+
+        hsv.v = 1.0f;
+
+        hsvToRgb(hsv.h, hsv.s, hsv.v, r, g, b);
+
+        out[i * 3 + 0] = r;
+        out[i * 3 + 1] = g;
+        out[i * 3 + 2] = b;
+    }
+
+    return out;
+}
+
+// Precomputed bright colourmaps.
+inline const ColourMap INFERNO_BRIGHT  = makeBrightColourMap(INFERNO);
+inline const ColourMap PLASMA_BRIGHT   = makeBrightColourMap(PLASMA);
+inline const ColourMap VIRIDIS_BRIGHT  = makeBrightColourMap(VIRIDIS);
+inline const ColourMap COOLWARM_BRIGHT = makeBrightColourMap(COOLWARM);
+inline const ColourMap RAINBOW_BRIGHT  = makeBrightColourMap(RAINBOW);
+inline const ColourMap HOT_BRIGHT      = makeBrightColourMap(HOT);
+inline const ColourMap COPPER_BRIGHT   = makeBrightColourMap(COPPER);
+inline const ColourMap PINK_BRIGHT     = makeBrightColourMap(PINK);
+inline const ColourMap GREY_BRIGHT     = makeBrightColourMap(GREY);
+// this does not look good as a bright map, so we just reuse the normal one.
+inline const ColourMap GNUPLOT2_BRIGHT = GNUPLOT2;
+
+// for Oscilloscope only
+static const float* getBrightColourMapForCode(int code)
+{
+    switch (code)
+    {
+        case 0: return getColourmapData(INFERNO_BRIGHT);
+        case 1: return getColourmapData(PLASMA_BRIGHT);
+        case 2: return getColourmapData(VIRIDIS_BRIGHT);
+        case 3: return getColourmapData(COOLWARM_BRIGHT);
+        case 4: return getColourmapData(RAINBOW_BRIGHT);
+        case 5: return getColourmapData(HOT_BRIGHT);
+        case 6: return getColourmapData(COPPER_BRIGHT);
+        case 7: return getColourmapData(PINK_BRIGHT);
+        case 8: return getColourmapData(GREY_BRIGHT);
+        case 9: return getColourmapData(GNUPLOT2_BRIGHT);
+        default:
+            return getColourmapData(INFERNO_BRIGHT);
     }
 }

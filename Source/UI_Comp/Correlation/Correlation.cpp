@@ -155,7 +155,6 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             sumLL -= SquareQueLL.front();  
             SquareQueLL.pop();
 
-
             sumRR -= SquareQueRR.front();  
             SquareQueRR.pop();
             

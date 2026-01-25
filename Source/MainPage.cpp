@@ -13,7 +13,7 @@ MainPage::MainPage(
     move_drag_comp(move_callback),
     volume_labels(typeface_regular, volume_seperator_labels),
     specrtum_volume_labels(typeface_regular, spectrum_volume_seperator_labels),
-    spectrum_frequency_labels(typeface_regular)
+    spectrum_frequency_labels(apvts_r, typeface_regular)
 {
 
     addAndMakeVisible(freeze_toggle_button);
@@ -55,7 +55,7 @@ void MainPage::paint(Graphics& g)
     
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
 
-    Colour accentColour = Colour::fromHSV(hue, 0.75, 0.35, 1.0);
+    Colour accentColour = Colour::fromHSV(hue, 0.5, 0.2, 1.0);
 
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();
@@ -91,11 +91,11 @@ void MainPage::paint(Graphics& g)
     float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
 
     // snap feature, if the space is too small snap and close that component.
-    if (v_sep_x < 0.2) v_sep_x = 0.0;
-    else if (v_sep_x > 0.8) v_sep_x = 1.0;
+    if (v_sep_x < 0.1) v_sep_x = 0.0;
+    else if (v_sep_x > 0.9) v_sep_x = 1.0;
 
-    if (h_sep_y < 0.2) h_sep_y = 0.0;
-    else if (h_sep_y > 0.8) h_sep_y = 1.0;
+    if (h_sep_y < 0.1) h_sep_y = 0.0;
+    else if (h_sep_y > 0.9) h_sep_y = 1.0;
 
     int verticalSeperator_x =
         ((bounds.getWidth() - seperatorBarWidthInPixels) * v_sep_x) + bounds.getX();
@@ -145,11 +145,11 @@ void MainPage::resized()
     int verticalSeperator_x, horizontalSeperator_y;
 
     // snap feature, if the space is too small snap and close that component.
-    if (v_sep_x < 0.2) v_sep_x = 0.0;
-    else if (v_sep_x > 0.8) v_sep_x = 1.0;
+    if (v_sep_x < 0.1) v_sep_x = 0.0;
+    else if (v_sep_x > 0.9) v_sep_x = 1.0;
 
-    if (h_sep_y < 0.2) h_sep_y = 0.0;
-    else if (h_sep_y > 0.8) h_sep_y = 1.0;
+    if (h_sep_y < 0.1) h_sep_y = 0.0;
+    else if (h_sep_y > 0.9) h_sep_y = 1.0;
 
     // relative to the present bounds.
     verticalSeperator_x =

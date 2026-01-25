@@ -20,7 +20,7 @@ SpectrogramComponent::SpectrogramComponent(
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
 
-    startTimer(1000.0f / (float)SPECTROGRAM_FPS);
+    startTimerHz(SPECTROGRAM_FPS);
 
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
@@ -42,6 +42,9 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     float fft_bar_measure = apvts_ref.getRawParameterValue("sp_measure")->load();
     float fft_bar_multiple = apvts_ref.getRawParameterValue("sp_multiple")->load();
     int hop_size = HOP_SIZE;
+
+    if (fft_bar_multiple < 0.5)// this component becomes unusable
+        return; 
 
     // float history_length_in_bars = (float)(powf(2.0, fft_bar_measure - 5.0) * fft_bar_multiple);
 

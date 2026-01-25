@@ -50,6 +50,8 @@ public:
     void processBlock(const float* input, int numSamples, float bpm, float SR, int N, int D);
 
     static void calculateAmplitudesFromFFT(float* input, float* output, int numSamples);
+
+    int getHeight() { return spectrogram_component->getHeight(); }
    
 private:
     std::array<std::vector<float>, MAX_ACCUMULATED> processed_amplitude_data;

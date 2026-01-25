@@ -99,6 +99,7 @@ void AnalytiksAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     SR = (float)sampleRate;
     fft_engine->prepareToPlay(sampleRate, samplesPerBlock);
     phase_correlation_component->prepareToPlay(sampleRate, samplesPerBlock);
+    // oscilloscope_component->setSampleRate((float)sampleRate);
 }
 
 void AnalytiksAudioProcessor::releaseResources()
@@ -218,13 +219,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_min",
         "Spectrum Frequncy range Min[Hz]",
-        NormalisableRange<float>(10.0, 20000.0),
-        10.0,
+        NormalisableRange<float>(20.0, 20000.0),
+        20.0,
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_max",
         "Spectrum Frequncy Range Max[Hz]",
-        NormalisableRange<float>(10.0, 20000.0), 
+        NormalisableRange<float>(20.0, 20000.0), 
         20000.0, 
         float_param_attributes));
 
@@ -407,9 +408,11 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
             }
         }
 
-        // the callbacks from this will update both the analyser and the spectrogram.
-        // temp_buffer is taken as a const float* to avoid accidental modification.
-        fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
+        if (fft_engine->getHeight() != 0) {
+            // the callbacks from this will update both the analyser and the spectrogram.
+            // temp_buffer is taken as a const float* to avoid accidental modification.
+            fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
+        }
 
         if (listen_enabled) {
             if (present_channel == 0) {
@@ -430,9 +433,13 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
             }
         }
 
-        // update the correlation meter and the oscilloscope here.
-        phase_correlation_component->processBlock(buffer);
-        // oscilloscope_component->processBlock(buffer);
+        if (phase_correlation_component->getHeight() != 0) {
+            // update the correlation meter and the oscilloscope.
+            if (phase_correlation_component->getWidth() != 0)
+                phase_correlation_component->processBlock(buffer);
+            if (oscilloscope_component->getWidth() != 0)
+                oscilloscope_component->newAudioBatch(buffer.getReadPointer(0), buffer.getReadPointer(1), number_of_samples, bpm, SR, timeSigNum);
+        }
     }
 
     if (!listen_enabled)
