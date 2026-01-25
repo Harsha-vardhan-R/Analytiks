@@ -7,7 +7,6 @@ OscilloscopeComponent::OscilloscopeComponent(AudioProcessorValueTreeState& apvts
 
     apvts_ref.addParameterListener("gb_vw_mde", this);
     apvts_ref.addParameterListener("gb_chnl", this);
-    apvts_ref.addParameterListener("gb_clrmap", this);
 
     clearData();
 
@@ -25,7 +24,7 @@ OscilloscopeComponent::~OscilloscopeComponent()
 {
     apvts_ref.removeParameterListener("gb_vw_mde", this);
     apvts_ref.removeParameterListener("gb_chnl", this);
-    apvts_ref.removeParameterListener("gb_clrmap", this);
+    // apvts_ref.removeParameterListener("gb_clrmap", this);
 
     opengl_context.detach();
 }
@@ -39,24 +38,25 @@ void OscilloscopeComponent::timerCallback()
 void OscilloscopeComponent::parameterChanged(const String& parameterID, float)
 {
     new_data_flag = true;
-
-    if (parameterID == "gb_clrmap")
-        colourmap_dirty = true;
+    clearData();
 }
 
 void OscilloscopeComponent::clearData()
 {
+    writeIndex.store(0);
+    accumulator = 0.0f;
+    validColumnsInData.store(OSC_MAX_WIDTH);
+
     for (int c = 0; c < OSC_MAX_WIDTH; ++c)
     {
-        oscMin[0][c] =  1.0f;
-        oscMax[0][c] = -1.0f;
-        oscMin[1][c] =  1.0f;
-        oscMax[1][c] = -1.0f;
-    }
+        oscMin[0][c] =  0.0f;
+        oscMax[0][c] =  0.0f;
+        oscMin[1][c] =  0.0f;
+        oscMax[1][c] =  0.0f;
 
-    writeIndex.store(0);
-    validColumnsInData.store(0);
-    accumulator = 0.0f;
+        oscSample[0][c] = 0.0f;
+        oscSample[1][c] = 0.0f;
+    }
 
     new_data_flag = true;
 }
@@ -82,6 +82,9 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
     if (samples_per_column < 1.0f)
         samples_per_column = 1.0f;
 
+    bool zoomedIn = (samples_per_column <= 5.0f);
+    renderMode.store(zoomedIn ? 1 : 0, std::memory_order_relaxed);
+
     int mode = (int) apvts_ref.getRawParameterValue("gb_chnl")->load();
 
     for (int id = 0; id < numSamples; ++id)
@@ -94,29 +97,57 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
 
         int wi = writeIndex.load(std::memory_order_relaxed);
 
-        if (mode == 0)
+        if (zoomedIn)
         {
-            oscMin[0][wi] = std::min(oscMin[0][wi], L);
-            oscMax[0][wi] = std::max(oscMax[0][wi], L);
+            if (mode == 0)
+            {
+                oscSample[0][wi] = L;
+                oscSample[1][wi] = R;
+            }
+            else if (mode == 1)
+            {
+                oscSample[0][wi] = L;
+            }
+            else if (mode == 2)
+            {
+                oscSample[0][wi] = R;
+            }
+            else
+            {
+                float S = jlimit(-1.0f, 1.0f, L - R);
+                oscSample[0][wi] = S;
+            }
 
-            oscMin[1][wi] = std::min(oscMin[1][wi], R);
-            oscMax[1][wi] = std::max(oscMax[1][wi], R);
-        }
-        else if (mode == 1)
-        {
-            oscMin[0][wi] = std::min(oscMin[0][wi], L);
-            oscMax[0][wi] = std::max(oscMax[0][wi], L);
-        }
-        else if (mode == 2)
-        {
-            oscMin[0][wi] = std::min(oscMin[0][wi], R);
-            oscMax[0][wi] = std::max(oscMax[0][wi], R);
+            // keep min/max consistent
+            oscMin[0][wi] = oscMax[0][wi] = oscSample[0][wi];
+            oscMin[1][wi] = oscMax[1][wi] = oscSample[1][wi];
         }
         else
         {
-            float S = jlimit(-1.0f, 1.0f, L - R);
-            oscMin[0][wi] = std::min(oscMin[0][wi], S);
-            oscMax[0][wi] = std::max(oscMax[0][wi], S);
+            if (mode == 0)
+            {
+                oscMin[0][wi] = std::min(oscMin[0][wi], L);
+                oscMax[0][wi] = std::max(oscMax[0][wi], L);
+
+                oscMin[1][wi] = std::min(oscMin[1][wi], R);
+                oscMax[1][wi] = std::max(oscMax[1][wi], R);
+            }
+            else if (mode == 1)
+            {
+                oscMin[0][wi] = std::min(oscMin[0][wi], L);
+                oscMax[0][wi] = std::max(oscMax[0][wi], L);
+            }
+            else if (mode == 2)
+            {
+                oscMin[0][wi] = std::min(oscMin[0][wi], R);
+                oscMax[0][wi] = std::max(oscMax[0][wi], R);
+            }
+            else
+            {
+                float S = jlimit(-1.0f, 1.0f, L - R);
+                oscMin[0][wi] = std::min(oscMin[0][wi], S);
+                oscMax[0][wi] = std::max(oscMax[0][wi], S);
+            }
         }
 
         accumulator += 1.0f;
@@ -127,10 +158,13 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
 
             int next = (wi + 1) % OSC_MAX_WIDTH;
 
-            oscMin[0][next] =  1.0f;
-            oscMax[0][next] = -1.0f;
-            oscMin[1][next] =  1.0f;
-            oscMax[1][next] = -1.0f;
+            oscMin[0][next] =  0.0f;
+            oscMax[0][next] =  0.0f;
+            oscMin[1][next] =  0.0f;
+            oscMax[1][next] =  0.0f;
+
+            oscSample[0][next] = 0.0f;
+            oscSample[1][next] = 0.0f;
 
             writeIndex.store(next, std::memory_order_relaxed);
 
@@ -161,6 +195,17 @@ void OscilloscopeComponent::uploadColourMap()
                     cmap);
 }
 
+int OscilloscopeComponent::getDelayColumns() const
+{
+    static const int delayColsTable[5] = { 0, 2, 4, 7, 10 };
+
+    int fftOrder = 2;
+    if (auto* p = apvts_ref.getRawParameterValue("gb_fft_ord"))
+        fftOrder = jlimit(0, 4, (int)p->load());
+
+    return delayColsTable[fftOrder] * 0; // leave this at zero for now, TODO TODO
+}
+
 void OscilloscopeComponent::newOpenGLContextCreated()
 {
     createShaders();
@@ -173,28 +218,29 @@ void OscilloscopeComponent::newOpenGLContextCreated()
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-    // waveform texture: 2 rows, RG32F (min/max)
     glGenTextures(1, &dataTexture);
     glBindTexture(GL_TEXTURE_2D, dataTexture);
 
-    // NOTE: NEAREST gives stable rendering for min/max bars
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    float initData[2][OSC_MAX_WIDTH * 2];
+    float initData[2][OSC_MAX_WIDTH * 3];
     for (int c = 0; c < OSC_MAX_WIDTH; ++c)
     {
-        initData[0][2*c + 0] = oscMin[0][c];
-        initData[0][2*c + 1] = oscMax[0][c];
-        initData[1][2*c + 0] = oscMin[1][c];
-        initData[1][2*c + 1] = oscMax[1][c];
+        initData[0][3*c + 0] = oscMin[0][c];
+        initData[0][3*c + 1] = oscMax[0][c];
+        initData[0][3*c + 2] = oscSample[0][c];
+
+        initData[1][3*c + 0] = oscMin[1][c];
+        initData[1][3*c + 1] = oscMax[1][c];
+        initData[1][3*c + 2] = oscSample[1][c];
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F,
                  OSC_MAX_WIDTH, 2,
-                 0, GL_RG, GL_FLOAT, initData);
+                 0, GL_RGB, GL_FLOAT, initData);
 
     // colourmap texture 1D
     glGenTextures(1, &colourMapTexture);
@@ -235,45 +281,66 @@ void OscilloscopeComponent::renderOpenGL()
 
     shader->use();
 
-    shader_uniforms->resolution->set(renderingScale * getWidth(),
-                                     renderingScale * getHeight());
+    if (shader_uniforms->resolution)
+        shader_uniforms->resolution->set(renderingScale * getWidth(),
+                                         renderingScale * getHeight());
 
-    shader_uniforms->imageData->set(0);
-    shader_uniforms->colourMapTex->set(1);
+    if (shader_uniforms->imageData)
+        shader_uniforms->imageData->set(0);
 
-    shader_uniforms->startIndex->set(writeIndex.load()); // offset for alignment
-    shader_uniforms->numIndex->set(OSC_MAX_WIDTH);
-    shader_uniforms->validColumns->set(validColumnsInData.load());
+    if (shader_uniforms->colourMapTex)
+        shader_uniforms->colourMapTex->set(1);
+
+    if (shader_uniforms->startIndex)
+        shader_uniforms->startIndex->set(writeIndex.load());
+
+    if (shader_uniforms->numIndex)
+        shader_uniforms->numIndex->set(OSC_MAX_WIDTH);
+
+    if (shader_uniforms->validColumns)
+        shader_uniforms->validColumns->set(validColumnsInData.load());
 
     int scroll_mode = (apvts_ref.getRawParameterValue("gb_vw_mde")->load() > 0.5f) ? 0 : 1;
-    shader_uniforms->scroll->set(scroll_mode);
+    if (shader_uniforms->scroll)
+        shader_uniforms->scroll->set(scroll_mode);
+
+    if (shader_uniforms->delayColumns)
+        shader_uniforms->delayColumns->set(getDelayColumns());
 
     int mode = (int) apvts_ref.getRawParameterValue("gb_chnl")->load();
-    shader_uniforms->mode->set(mode);
+    if (shader_uniforms->mode)
+        shader_uniforms->mode->set(mode);
 
     float th = 2.5f * renderingScale;
     th = jlimit(1.0f, 6.0f, th);
-    shader_uniforms->thickness->set(th);
+    if (shader_uniforms->thickness)
+        shader_uniforms->thickness->set(th);
+
+    if (shader_uniforms->renderMode)
+        shader_uniforms->renderMode->set(renderMode.load(std::memory_order_relaxed));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, dataTexture);
 
     if (new_data_flag)
     {
-        static float uploadData[2][OSC_MAX_WIDTH * 2];
+        static float uploadData[2][OSC_MAX_WIDTH * 3];
 
         for (int c = 0; c < OSC_MAX_WIDTH; ++c)
         {
-            uploadData[0][2*c + 0] = oscMin[0][c];
-            uploadData[0][2*c + 1] = oscMax[0][c];
-            uploadData[1][2*c + 0] = oscMin[1][c];
-            uploadData[1][2*c + 1] = oscMax[1][c];
+            uploadData[0][3*c + 0] = oscMin[0][c];
+            uploadData[0][3*c + 1] = oscMax[0][c];
+            uploadData[0][3*c + 2] = oscSample[0][c];
+
+            uploadData[1][3*c + 0] = oscMin[1][c];
+            uploadData[1][3*c + 1] = oscMax[1][c];
+            uploadData[1][3*c + 2] = oscSample[1][c];
         }
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                         OSC_MAX_WIDTH, 2,
-                        GL_RG, GL_FLOAT, uploadData);
+                        GL_RGB, GL_FLOAT, uploadData);
 
         new_data_flag = false;
     }
@@ -281,11 +348,7 @@ void OscilloscopeComponent::renderOpenGL()
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_1D, colourMapTexture);
 
-    if (colourmap_dirty)
-    {
-        uploadColourMap();
-        colourmap_dirty = false;
-    }
+    uploadColourMap();
 
     GLfloat verts[] = { 1,1,  1,-1,  -1,-1,  -1,1 };
     GLuint inds[]   = { 0,1,3,  1,2,3 };
@@ -361,6 +424,8 @@ OscilloscopeComponent::Uniforms::Uniforms(OpenGLContext& OpenGL_Context, OpenGLS
     scroll.reset(createUniform(OpenGL_Context, shader_program, "scroll"));
     mode.reset(createUniform(OpenGL_Context, shader_program, "mode"));
     thickness.reset(createUniform(OpenGL_Context, shader_program, "thickness"));
+    delayColumns.reset(createUniform(OpenGL_Context, shader_program, "delayColumns"));
+    renderMode.reset(createUniform(OpenGL_Context, shader_program, "renderMode")); // ADDED
 }
 
 OpenGLShaderProgram::Uniform* OscilloscopeComponent::Uniforms::createUniform(

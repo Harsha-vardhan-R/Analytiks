@@ -9,7 +9,7 @@ if(WIN32)
     set(CMAKE_GENERATOR_PLATFORM x64)
 endif()
 
-project(Analytiks VERSION 0.0.5)
+project(Analytiks VERSION 1.0.0)
 
 add_subdirectory(JUCE)
 

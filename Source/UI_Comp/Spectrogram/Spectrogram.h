@@ -162,13 +162,12 @@ private:
             }
             else
             {
-                // grow-from-left (no wrap)
                 col0 = clamp(col0, 0, numIndex - 1);
                 col1 = clamp(col1, 0, numIndex - 1);
 
                 // nothing written yet on the right side
-                if (col0 >= startIndex)
-                    discard;
+                //if (col0 >= startIndex)
+                //    discard;
             }
 
             float pixelY = 1.0 / resolution.y;

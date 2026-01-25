@@ -7,10 +7,8 @@ SpectrogramComponent::SpectrogramComponent(
 {
     // if there is a change in the amount of history to be stored,
     // clear the existing data.
-    apvts_ref.addParameterListener("sp_measure", this);
-    apvts_ref.addParameterListener("sp_multiple", this);
-    apvts_ref.addParameterListener("gb_fft_ord", this);
     apvts_ref.addParameterListener("gb_vw_mde", this);
+    apvts_ref.addParameterListener("gb_chnl", this);
 
     setOpaque(true);
 
