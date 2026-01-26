@@ -10,7 +10,8 @@
 
 using namespace juce;
 
-class MainPage : public Component
+class MainPage : public Component,
+    public AudioProcessorValueTreeState::Listener
 {
 public:
 
@@ -26,6 +27,8 @@ public:
     void paint(Graphics& g) override;
     void resized() override;
 
+    void parameterChanged(const String& parameterID, float newValue) override;
+
     // visible from the plugin editor.
     iconButton freeze_toggle_button;
     iconButton settings_toggle_button;
@@ -33,6 +36,8 @@ public:
 private:
     AudioProcessorValueTreeState& apvts_ref;
     std::array<juce::Component*, 4> display_component_pointers;
+
+    Label time_history_label;
 
     //==============================================================================
     //==============================================================================

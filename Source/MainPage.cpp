@@ -32,12 +32,17 @@ MainPage::MainPage(
 
     addAndMakeVisible(plugin_name_label);
     addAndMakeVisible(plugin_build_name_label);
+
+    apvts_ref.addParameterListener("sp_measure", this);
+    apvts_ref.addParameterListener("sp_multiple", this);
     
     plugin_name_label.setText("Analytiks", dontSendNotification);
     plugin_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
     plugin_build_name_label.setText(JucePlugin_VersionString, dontSendNotification);
     plugin_build_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
     plugin_build_name_label.setJustificationType(Justification::bottomLeft);
+
+    parameterChanged("", 0.0f);
 
 }
 
@@ -115,6 +120,10 @@ void MainPage::paint(Graphics& g)
         seperatorBarWidthInPixels
     );
 
+    addAndMakeVisible(time_history_label);
+    time_history_label.setJustificationType(Justification::centred);
+    time_history_label.setColour(Label::ColourIds::textColourId, Colours::white);
+
     g.fillRect(verticalSeperator);
     g.fillRect(horizontalSeperator);
 
@@ -126,6 +135,8 @@ void MainPage::resized()
     auto bounds = getLocalBounds();
     int height = bounds.getHeight();
     int width = bounds.getWidth();
+
+    time_history_label.setFont(cust_font_regular.withHeight(0.6f * seperatorBarWidthInPixels));
 
     int ribbonHeight = std::clamp<int>(ribbonHeightFraction * height, 25, 35);
 
@@ -178,6 +189,8 @@ void MainPage::resized()
     specrtum_volume_labels.setBounds(horizontalSepRightPart);
     spectrum_frequency_labels.setBounds(verticalSepTopBounds);
 
+    time_history_label.setBounds(horizontalSepLeftPart);
+
     cust_font_bold.setHeight(0.9 * ribbonHeight);
     plugin_name_label.setFont(cust_font_bold);
     auto wid = cust_font_bold.getStringWidthFloat(plugin_name_label.getText());
@@ -208,4 +221,93 @@ void MainPage::resized()
     display_component_pointers[1]->setBounds(top_left_component);
     display_component_pointers[2]->setBounds(bottom_left_component);
     display_component_pointers[3]->setBounds(bottom_right_component);
+}
+
+static int gcdInt(int a, int b)
+{
+    a = std::abs(a);
+    b = std::abs(b);
+    while (b != 0) { int t = a % b; a = b; b = t; }
+    return a == 0 ? 1 : a;
+}
+
+static juce::String toMixedFraction(int num, int den)
+{
+    if (den <= 0) return "0";
+
+    const int whole = num / den;
+    int rem = num % den;
+
+    if (rem == 0)
+        return juce::String(whole);
+
+    const int g = gcdInt(rem, den);
+    rem /= g;
+    den /= g;
+
+    if (whole == 0)
+        return juce::String(rem) + "/" + juce::String(den);
+
+    return juce::String(whole) + "  " + juce::String(rem) + "/" + juce::String(den);
+}
+
+static void approximateFraction(double x, int maxDen, int& outNum, int& outDen)
+{
+    const bool neg = (x < 0.0);
+    x = std::abs(x);
+
+    int bestNum = 0;
+    int bestDen = 1;
+    double bestErr = std::numeric_limits<double>::max();
+
+    for (int den = 1; den <= maxDen; ++den)
+    {
+        const int num = (int) std::lround(x * den);
+        const double val = (double) num / (double) den;
+        const double err = std::abs(val - x);
+
+        if (err < bestErr)
+        {
+            bestErr = err;
+            bestNum = num;
+            bestDen = den;
+        }
+    }
+
+    if (neg) bestNum = -bestNum;
+
+    // simplify
+    const int g = gcdInt(bestNum, bestDen);
+    outNum = bestNum / g;
+    outDen = bestDen / g;
+}
+
+void MainPage::parameterChanged(const juce::String&, float)
+{
+    struct Fraction { double n, d; };
+    static constexpr Fraction measureTable[4] =
+    {
+        { 1.0, 4.0 },
+        { 1.0, 3.0 },
+        { 1.0, 7.0 },
+        { 1.0, 5.0 }
+    };
+
+    const int measureIndex = juce::jlimit(0, 3,
+        (int) apvts_ref.getRawParameterValue("sp_measure")->load());
+
+    const double multiple =
+        (double) apvts_ref.getRawParameterValue("sp_multiple")->load();
+
+    const auto f = measureTable[measureIndex];
+
+    const double bars = multiple * (f.n / f.d);
+
+    int num = 0, den = 1;
+    approximateFraction(bars, 64, num, den); // <=64 gives musically sane fractions
+
+    time_history_label.setText(
+        toMixedFraction(num, den) + " Bar(s)",
+        juce::dontSendNotification
+    );
 }

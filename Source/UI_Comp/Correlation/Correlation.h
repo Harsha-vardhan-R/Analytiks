@@ -14,7 +14,8 @@ using namespace juce;
 
 class PhaseCorrelationAnalyserComponent 
     :   public Component,
-        public Timer // to call the repaint method.
+        public Timer, // to call the repaint method.
+        public AudioProcessorParameter::Listener
 {
 public:
 
@@ -22,6 +23,9 @@ public:
         AudioProcessorValueTreeState& apvts_reference
     );
     ~PhaseCorrelationAnalyserComponent();
+
+    void parameterValueChanged (int parameterIndex, float newValue) override;
+    void parameterGestureChanged (int , bool) override {};
 
     std::atomic<bool> dirty = true;
 

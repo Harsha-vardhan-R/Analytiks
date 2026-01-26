@@ -11,7 +11,7 @@
 using namespace juce;
 
 #define SPECTROGRAM_FPS 60
-#define SPECTROGRAM_MAX_WIDTH 2000
+#define SPECTROGRAM_MAX_WIDTH 1500
 // This is required because we can zoom into the spectrogram, by giving the min_freq and max_freq.
 // so we cannot decimate even though the visible pixels might alwas be less than this.
 #define SPECTROGRAM_FFT_BINS_MAX 4097
@@ -25,6 +25,7 @@ class SpectrogramComponent
 public:
 
     SpectrogramComponent(AudioProcessorValueTreeState& apvts_reference);
+    ~SpectrogramComponent() override;
 
     void timerCallback() override;
     void newDataBatch(std::array<std::vector<float>, 32>& data, int valid, int numBins, float bpm, float sample_rate, int N, int D);

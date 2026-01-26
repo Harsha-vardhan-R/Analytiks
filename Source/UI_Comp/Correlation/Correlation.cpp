@@ -20,6 +20,12 @@ PhaseCorrelationAnalyserComponent::~PhaseCorrelationAnalyserComponent()
     apvts_ref.getParameter("gb_clrmap")->removeListener(&opengl_comp);
 }
 
+void PhaseCorrelationAnalyserComponent::parameterValueChanged(int parameterIndex, float newValue)
+{
+    opengl_comp.repaint();
+    dirty = true;
+}
+
 void PhaseCorrelationAnalyserComponent::paint(Graphics& g)
 {
     float hue = apvts_ref.getRawParameterValue("ui_acc_hue")->load();
@@ -703,7 +709,7 @@ void PhaseCorrelationAnalyserComponent::VolumeMeterComponent::paint(Graphics& g)
     right_background_bar_bound.removeFromTop(half_remove_right_smooth);
     right_background_bar_bound.removeFromBottom(half_remove_right_smooth);
 
-    g.setColour(juce::Colours::orangered);
+    g.setColour(juce::Colours::darkgrey);
     g.fillRect(left_background_bar_bound);
     g.fillRect(right_background_bar_bound);
 

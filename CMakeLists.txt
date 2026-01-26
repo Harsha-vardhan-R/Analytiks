@@ -9,6 +9,11 @@ if(WIN32)
     set(CMAKE_GENERATOR_PLATFORM x64)
 endif()
 
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+endif()
+
 project(Analytiks VERSION 1.0.0)
 
 add_subdirectory(JUCE)
@@ -37,6 +42,12 @@ file(GLOB RWQUEUE_RESOURCES
     "rwqueue/*.cmake.in"
 )
 
+if(APPLE)
+    set(PLUGIN_FORMATS AU VST3 Standalone)
+else()  # Windows and Linux
+    set(PLUGIN_FORMATS VST3 Standalone)
+endif()
+
 
 juce_add_plugin(
     Analytiks
@@ -50,7 +61,7 @@ juce_add_plugin(
         COPY_PLUGIN_AFTER_BUILD TRUE
         PLUGIN_MANUFACTURER_CODE Manu
         PLUGIN_CODE xObb
-        FORMATS AU VST3 Standalone
+        FORMATS ${PLUGIN_FORMATS}
         PRODUCT_NAME "Analytiks"
 )
 
@@ -110,6 +121,7 @@ target_compile_definitions(Analytiks
 if(MSVC)
     target_compile_options(Analytiks PRIVATE
         $<$<CONFIG:Release>:/O2>
+        $<$<CONFIG:Release>:/GL>
     )
 else()
     target_compile_options(Analytiks PRIVATE

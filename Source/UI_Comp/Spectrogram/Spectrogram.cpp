@@ -9,6 +9,9 @@ SpectrogramComponent::SpectrogramComponent(
     // clear the existing data.
     apvts_ref.addParameterListener("gb_vw_mde", this);
     apvts_ref.addParameterListener("gb_chnl", this);
+    apvts_ref.addParameterListener("gb_fft_ord", this);
+    apvts_ref.addParameterListener("sp_measure", this);
+    apvts_ref.addParameterListener("sp_multiple", this);
 
     setOpaque(true);
 
@@ -23,6 +26,19 @@ SpectrogramComponent::SpectrogramComponent(
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
+
+    parameterChanged("", 0.0f);
+}
+
+SpectrogramComponent::~SpectrogramComponent()
+{
+    apvts_ref.removeParameterListener("gb_vw_mde", this);
+    apvts_ref.removeParameterListener("gb_chnl", this);
+    apvts_ref.removeParameterListener("gb_fft_ord", this);
+    apvts_ref.removeParameterListener("sp_measure", this);
+    apvts_ref.removeParameterListener("sp_multiple", this);
+
+    opengl_context.detach();
 }
 
 void SpectrogramComponent::timerCallback()
@@ -41,8 +57,7 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     float fft_bar_multiple = apvts_ref.getRawParameterValue("sp_multiple")->load();
     int hop_size = HOP_SIZE;
 
-    if (fft_bar_multiple < 0.5)// this component becomes unusable
-        return; 
+    
 
     // float history_length_in_bars = (float)(powf(2.0, fft_bar_measure - 5.0) * fft_bar_multiple);
 
@@ -74,12 +89,17 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
         (historySeconds * fftFramesPerSecond)
         / (float)SPECTROGRAM_MAX_WIDTH;
 
+    if (frames_per_column < 0.005)// this component becomes unusable
+        return; 
+
     int id = 0;
 
     // cout << "History seconds: " << historySeconds << endl;
     // cout << "Frames/column: " << frames_per_column << endl;
 
-    while (id < valid) {
+    int numWritten = 0;
+
+    while (id < valid && numWritten < SPECTROGRAM_MAX_WIDTH) {
         for (int bin = 0; bin < numBins; ++bin)
             spectrogram_data[bin][writeIndex] =
                 std::max(spectrogram_data[bin][writeIndex], data[id][bin]);
@@ -100,6 +120,8 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
         } else { // Duplication happens implicitly because id does not grow.
             accumulator += frames_per_column;
 
+            // cout << frames_per_column << endl;
+
             if (accumulator >= 1.0f) {
                 accumulator -= 1.0f;
                 id++;
@@ -111,6 +133,8 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
                 spectrogram_data[bin][writeIndex] = 0.0f;
 
         }
+
+        numWritten++;
     }
 
     new_data_flag = true;
@@ -186,6 +210,9 @@ void SpectrogramComponent::newOpenGLContextCreated()
                 cmap);
 
     trigger_repaint = true;
+
+    parameterChanged("", 0.0f);
+
 }
 
 void SpectrogramComponent::renderOpenGL()

@@ -7,8 +7,9 @@ OscilloscopeComponent::OscilloscopeComponent(AudioProcessorValueTreeState& apvts
 
     apvts_ref.addParameterListener("gb_vw_mde", this);
     apvts_ref.addParameterListener("gb_chnl", this);
-
-    clearData();
+    apvts_ref.addParameterListener("gb_fft_ord", this);
+    apvts_ref.addParameterListener("sp_measure", this);
+    apvts_ref.addParameterListener("sp_multiple", this);
 
     opengl_context.setOpenGLVersionRequired(OpenGLContext::OpenGLVersion::openGL3_2);
     opengl_context.setRenderer(this);
@@ -18,13 +19,17 @@ OscilloscopeComponent::OscilloscopeComponent(AudioProcessorValueTreeState& apvts
 
     startTimerHz(OSC_FPS);
     opengl_context.setSwapInterval(1);
+
+    parameterChanged("", 0.0f);
 }
 
 OscilloscopeComponent::~OscilloscopeComponent()
 {
     apvts_ref.removeParameterListener("gb_vw_mde", this);
     apvts_ref.removeParameterListener("gb_chnl", this);
-    // apvts_ref.removeParameterListener("gb_clrmap", this);
+    apvts_ref.removeParameterListener("gb_fft_ord", this);
+    apvts_ref.removeParameterListener("sp_measure", this);
+    apvts_ref.removeParameterListener("sp_multiple", this);
 
     opengl_context.detach();
 }
@@ -59,6 +64,9 @@ void OscilloscopeComponent::clearData()
     }
 
     new_data_flag = true;
+
+    if (trigger_repaint)
+        opengl_context.triggerRepaint();
 }
 
 void OscilloscopeComponent::newAudioBatch(const float* left, const float* right, int numSamples,
@@ -259,6 +267,9 @@ void OscilloscopeComponent::newOpenGLContextCreated()
 
     colourmap_dirty = false;
     trigger_repaint = true;
+                 
+    parameterChanged("", 0.0f);
+
 }
 
 void OscilloscopeComponent::renderOpenGL()
