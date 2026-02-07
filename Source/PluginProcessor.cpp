@@ -126,13 +126,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_sep_x",   
         "UI Seperator X", 
-        NormalisableRange<float>(0.0, 1.0), 
+        NormalisableRange<float>(0.0, 1.0, 0.01, 1, true), 
         0.75, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_sep_y",   
         "UI Seperator Y", 
-        NormalisableRange<float>(0.0, 1.0), 
+        NormalisableRange<float>(0.0, 1.0, 0.01, 1, true), 
         0.6,  
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>( 
@@ -151,7 +151,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>( 
         "ui_acc_hue",   
         "UI Accent Hue",
-        NormalisableRange<float>(0.0, 1.0),    
+        NormalisableRange<float>(0.0, 1.0, 0.01, 1, true),    
         0.9, 
         float_param_attributes));
 
@@ -219,13 +219,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_min",
         "Spectrum Frequncy range Min[Hz]",
-        NormalisableRange<float>(20.0, 20000.0),
+        NormalisableRange<float>(20.0, 20000.0, 0.1, 0.5, false),
         20.0,
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_rng_max",
         "Spectrum Frequncy Range Max[Hz]",
-        NormalisableRange<float>(20.0, 20000.0), 
+        NormalisableRange<float>(20.0, 20000.0, 0.1, 0.5, false), 
         20000.0, 
         float_param_attributes));
 
@@ -247,13 +247,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_bar_spd", 
         "Spectrum Bar Speed[ms]", 
-        NormalisableRange<float>(0.01, 15.0), 
+        NormalisableRange<float>(0.01, 15.0, 0.01, 1, true), 
         1.0, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sp_high_gt", 
         "Spectrum highlighting gate[dB]", 
-        NormalisableRange<float>(-60.0, 0.0), 
+        NormalisableRange<float>(-60.0, 0.0, 0.01, 1, true), 
         -35.0, 
         float_param_attributes));
 
@@ -263,13 +263,13 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_bias", 
         "Spectrum colourmap bias", 
-        NormalisableRange<float>(0.0, 1.0), 
-        0.01, 
+        NormalisableRange<float>(0.0, 1.0, 0.01, 2, true), 
+        0.0, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterFloat>(
         "sg_cm_curv", 
         "Spectrum colourmap curve", 
-        NormalisableRange<float>(-1.0, 1.0), 
+        NormalisableRange<float>(-1.0, 1.0, 0.01, 1, true), 
         0.2, 
         float_param_attributes));
     layout.add(std::make_unique<AudioParameterBool>(
@@ -291,7 +291,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
         layout.add(std::make_unique<AudioParameterFloat>(
             "sp_multiple",
             "History Window Multiple",
-            NormalisableRange<float>(0.001f, 64.0f),
+            NormalisableRange<float>(0.15f, 64.0f, 0.01, 5, true),
             16.0f,
             float_param_attributes));
 
@@ -301,7 +301,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
     layout.add(std::make_unique<AudioParameterFloat>(
         "v_rms_time", 
         "RMS window length[ms]", 
-        NormalisableRange<float>(0.1, 500.0), 
+        NormalisableRange<float>(0.1, 500.0, 0.01, 1, true), 
         45.0, 
         float_param_attributes));
 
@@ -419,28 +419,27 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
                 oscilloscope_component->newAudioBatch(buffer.getReadPointer(0), buffer.getReadPointer(1), number_of_samples, bpm, SR, timeSigNum);
         }
 
-        if (listen_enabled) {
-            if (present_channel == 0) {
-                // do nothing, both channels are already there.
-            } else if (present_channel == 1) {
-                // left only
-                buffer.copyFrom(1, 0, buffer, 0, 0, number_of_samples);
-            } else if (present_channel == 2) {
-                // right only
-                buffer.copyFrom(0, 0, buffer, 1, 0, number_of_samples);
-            } else {
-                // side only
-                for (int sample = 0; sample < number_of_samples; ++sample) {
-                    float side = (left_channel_data[sample] - right_channel_data[sample]) * 0.5;
-                    buffer.setSample(0, sample, side);
-                    buffer.setSample(1, sample, side);
-                }
+        
+        if (present_channel == 0) {
+            // do nothing, both channels are already there.
+        } else if (present_channel == 1) {
+            // left only
+            buffer.copyFrom(1, 0, buffer, 0, 0, number_of_samples);
+        } else if (present_channel == 2) {
+            // right only
+            buffer.copyFrom(0, 0, buffer, 1, 0, number_of_samples);
+        } else {
+            // side only
+            for (int sample = 0; sample < number_of_samples; ++sample) {
+                float side = (left_channel_data[sample] - right_channel_data[sample]) * 0.5;
+                buffer.setSample(0, sample, side);
+                buffer.setSample(1, sample, side);
             }
+        }
 
-            if (phase_correlation_component->getHeight() != 0) {
-                if (phase_correlation_component->getWidth() != 0)
-                    phase_correlation_component->processBlock(buffer);
-            }
+        if (phase_correlation_component->getHeight() != 0) {
+            if (phase_correlation_component->getWidth() != 0)
+                phase_correlation_component->processBlock(buffer);
         }
         
     }

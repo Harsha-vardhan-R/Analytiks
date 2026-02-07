@@ -52,7 +52,8 @@ private:
 
     int getDelayColumns() const;
 
-    float accumulator = 0.0f;
+    uint64_t totalSamplesWritten = 0;
+    double accumulator = 0.0;
     std::atomic<float> SR { 44100.0f };
 
     float oscMin[2][OSC_MAX_WIDTH] = {};

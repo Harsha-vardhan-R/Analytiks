@@ -185,54 +185,55 @@ inline const ColourMap GNUPLOT2 =
     1.0f, 1.0f, 1.0f
 };
 
+// Updated accent colors to better represent each colormap
 inline const AccentColours INFERNO_ACCENT = {
-    0.90200f, 0.36449f, 0.18411f,
-    0.98836f, 0.99836f, 0.64492f
+    0.522206f, 0.12815f, 0.419549f,    // Deep magenta-purple (index 4)
+    0.969163f, 0.515946f, 0.063488f    // Bright orange (index 8)
 };
 
 inline const AccentColours PLASMA_ACCENT = {
-    0.90736f, 0.43452f, 0.35297f,
-    0.94001f, 0.97515f, 0.13132f
+    0.523633f, 0.024532f, 0.652901f,   // Deep purple-pink (index 3)
+    0.991985f, 0.681179f, 0.195295f    // Bright yellow-orange (index 9)
 };
 
 inline const AccentColours VIRIDIS_ACCENT = {
-    0.17742f, 0.43752f, 0.55756f,
-    0.52577f, 0.83349f, 0.28812f
+    0.220057f, 0.343307f, 0.549413f,   // Deep teal (index 3)
+    0.525776f, 0.833491f, 0.288127f    // Bright yellow-green (index 9)
 };
 
 inline const AccentColours COOLWARM_ACCENT = {
-    1.00000f, 1.00000f, 1.00000f,
-    1.00000f, 0.00000f, 0.00000f
+    0.08235294117647059f, 0.08235294117647059f, 1.0f,  // Pure blue (index 3)
+    1.0f, 0.08235294117647063f, 0.08235294117647063f   // Pure red (index 8)
 };
 
 inline const AccentColours RAINBOW_ACCENT = {
-    0.59019f, 0.98998f, 0.65528f,
-    1.00000f, 0.27958f, 0.14120f
+    0.04117647058823526f, 0.7513318895568732f, 0.9110226492460883f,  // Cyan (index 3)
+    1.0f, 0.0f, 0.0f                                                  // Red (index 11)
 };
 
 inline const AccentColours HOT_ACCENT = {
-    0.00010f, 0.00010f, 0.00010f,
-    1.00000f, 0.00000f, 0.00000f
+    0.9990204970624408f, 0.0f, 0.0f,   // Pure red (index 4)
+    1.0f, 1.0f, 0.2897051720581133f    // Yellow (index 9)
 };
 
 inline const AccentColours COPPER_ACCENT = {
-    0.45051f, 0.28490f, 0.18144f,
-    1.00000f, 0.78120f, 0.49750f
+    0.3342559767148567f, 0.2113835294117647f, 0.1346176470588235f,  // Medium copper (index 3)
+    1.0f, 0.7107388235294118f, 0.45262745098039214f                 // Bright copper (index 10)
 };
 
 inline const AccentColours PINK_ACCENT = {
-    0.65652f, 0.42471f, 0.42471f,
-    0.90532f, 0.89724f, 0.69733f
+    0.656529337246749f, 0.42471789198083315f, 0.42471789198083315f,    // Medium pink (index 3)
+    0.9694647807844866f, 0.9694647807844866f, 0.9063233018543019f     // Bright cream (index 10)
 };
 
 inline const AccentColours GREY_ACCENT = {
-    0.54509f, 0.54509f, 0.54509f,
-    0.90980f, 0.90980f, 0.90980f,
+    0.36470588235294116f, 0.36470588235294116f, 0.36470588235294116f,  // Dark grey (index 4)
+    0.8196078431372549f, 0.8196078431372549f, 0.8196078431372549f     // Light grey (index 9)
 };
 
 inline const AccentColours GNUPLOT2_ACCENT = {
-    0.00000f, 0.00000f, 0.72156f,
-    1.00000f, 1.00000f, 0.00000f
+    0.06433823529411753f, 0.0f, 1.0f,     // Deep blue-purple (index 3)
+    1.0f, 0.9796078431372549f, 0.020392156862745203f  // Bright yellow (index 10)
 };
 
 static const float* getColourMapForCode(int code)

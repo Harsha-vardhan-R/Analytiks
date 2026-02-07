@@ -58,7 +58,8 @@ private:
     std::atomic<int> validColumnsInData = 0;
     // number of fft frames accumulated so far for the current column.
     // used to decide when to switch to a new column.
-    float accumulator = 0.0f;
+    double accumulator = 0.0f;
+    uint64_t totalFramesWritten = 0;
 
     float SR = 44100.0f;
 
@@ -77,6 +78,7 @@ private:
             numBins,
             startIndex,
             numIndex,
+            validColumns,
             minFreq,
             maxFreq,
             sampleRate,
@@ -115,6 +117,7 @@ private:
         uniform int numBins;
         uniform int startIndex;
         uniform int numIndex;
+        uniform int validColumns;
 
         uniform float minFreq;
         uniform float maxFreq;
@@ -151,24 +154,22 @@ private:
         {
             vec2 uv = gl_FragCoord.xy / resolution.xy;
 
-            float colF = uv.x * float(numIndex);
+            // Map to validColumns and stretch across screen
+            float colF = uv.x * float(validColumns);
             int col0 = int(floor(colF));
-            int col1 = min(col0 + 1, numIndex - 1);
+            int col1 = min(col0 + 1, validColumns - 1);
 
             if (scroll == 1)
             {
-                // ring-buffer scrolling
-                col0 = (startIndex + col0) % numIndex;
-                col1 = (startIndex + col1) % numIndex;
+                // Ring-buffer scrolling mode
+                col0 = (startIndex + 1 + col0) % validColumns;
+                col1 = (startIndex - 1 + col1) % validColumns;
             }
             else
             {
-                col0 = clamp(col0, 0, numIndex - 1);
-                col1 = clamp(col1, 0, numIndex - 1);
-
-                // nothing written yet on the right side
-                //if (col0 >= startIndex)
-                //    discard;
+                // Non-scrolling mode
+                col0 = clamp(col0, 0, validColumns - 1);
+                col1 = clamp(col1, 0, validColumns - 1);
             }
 
             float pixelY = 1.0 / resolution.y;

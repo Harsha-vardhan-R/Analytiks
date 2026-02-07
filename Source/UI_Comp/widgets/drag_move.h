@@ -18,6 +18,7 @@ public:
 		: move_delta_callback(move_callback)
 	{
 		setOpaque(false);
+		repaint();
 	}
 
 	void paint(Graphics& g) override 

@@ -51,6 +51,7 @@ void OscilloscopeComponent::clearData()
     writeIndex.store(0);
     accumulator = 0.0f;
     validColumnsInData.store(OSC_MAX_WIDTH);
+    totalSamplesWritten = 0;
 
     for (int c = 0; c < OSC_MAX_WIDTH; ++c)
     {
@@ -90,7 +91,7 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
     if (samples_per_column < 1.0f)
         samples_per_column = 1.0f;
 
-    bool zoomedIn = (samples_per_column <= 5.0f);
+    bool zoomedIn = (samples_per_column <= 25.0f);
     renderMode.store(zoomedIn ? 1 : 0, std::memory_order_relaxed);
 
     int mode = (int) apvts_ref.getRawParameterValue("gb_chnl")->load();
@@ -205,13 +206,13 @@ void OscilloscopeComponent::uploadColourMap()
 
 int OscilloscopeComponent::getDelayColumns() const
 {
-    static const int delayColsTable[5] = { 0, 2, 4, 7, 10 };
+    static const int delayColsTable[5] = { 4, 7, 14, 27, 54 };
 
     int fftOrder = 2;
     if (auto* p = apvts_ref.getRawParameterValue("gb_fft_ord"))
         fftOrder = jlimit(0, 4, (int)p->load());
 
-    return delayColsTable[fftOrder] * 0; // leave this at zero for now, TODO TODO
+    return delayColsTable[fftOrder];
 }
 
 void OscilloscopeComponent::newOpenGLContextCreated()

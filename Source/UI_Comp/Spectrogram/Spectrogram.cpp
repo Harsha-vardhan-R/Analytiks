@@ -57,15 +57,6 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     float fft_bar_multiple = apvts_ref.getRawParameterValue("sp_multiple")->load();
     int hop_size = HOP_SIZE;
 
-    
-
-    // float history_length_in_bars = (float)(powf(2.0, fft_bar_measure - 5.0) * fft_bar_multiple);
-
-    // number of frames per column of spectrogram image data.
-    // float frames_per_column =
-    //     (((history_length_in_bars * 60.0f * (float)N) / bpm)
-    //     * (sample_rate / hop_size)) / (float)SPECTROGRAM_MAX_WIDTH;
-
     static const float measureTable[] = {
         1.0f / 4.0f,
         1.0f / 3.0f,
@@ -85,61 +76,45 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     float fftFramesPerSecond =
         sample_rate / hop_size;
 
+    float totalFramesForHistory =
+        historySeconds * fftFramesPerSecond;
+
     float frames_per_column =
-        (historySeconds * fftFramesPerSecond)
-        / (float)SPECTROGRAM_MAX_WIDTH;
+        totalFramesForHistory / (float)SPECTROGRAM_MAX_WIDTH;
 
-    if (frames_per_column < 0.005)// this component becomes unusable
-        return; 
+    // if (frames_per_column < 0.005)// this component becomes unusable
+    //     return;
+    
+    // Calculate how many columns we actually need for this history
+    int numColumnsNeeded = (int)(totalFramesForHistory / jmax(1.0f, frames_per_column));
+    numColumnsNeeded = jlimit(1, SPECTROGRAM_MAX_WIDTH, numColumnsNeeded);
+    
+    // Update valid columns
+    validColumnsInData = numColumnsNeeded;
 
-    int id = 0;
-
-    // cout << "History seconds: " << historySeconds << endl;
-    // cout << "Frames/column: " << frames_per_column << endl;
-
-    int numWritten = 0;
-
-    while (id < valid && numWritten < SPECTROGRAM_MAX_WIDTH) {
+    // Process each incoming FFT frame
+    for (int id = 0; id < valid; ++id) {
+        // Write data to current column
         for (int bin = 0; bin < numBins; ++bin)
-            spectrogram_data[bin][writeIndex] =
-                std::max(spectrogram_data[bin][writeIndex], data[id][bin]);
+            spectrogram_data[bin][writeIndex] = data[id][bin];
 
-        if (frames_per_column >= 1.0f) {
-            accumulator += 1.0f;
+        accumulator += 1.0f;
 
-            if (accumulator >= frames_per_column) {
-                accumulator -= frames_per_column;
-
-                writeIndex = (writeIndex + 1) % SPECTROGRAM_MAX_WIDTH;
-                validColumnsInData = jmin(validColumnsInData + 1, SPECTROGRAM_MAX_WIDTH);
-                for (int bin = 0; bin < numValidBins; ++bin)
-                    spectrogram_data[bin][writeIndex] = 0.0f;
-            }
-
-            id++;
-        } else { // Duplication happens implicitly because id does not grow.
-            accumulator += frames_per_column;
-
-            // cout << frames_per_column << endl;
-
-            if (accumulator >= 1.0f) {
-                accumulator -= 1.0f;
-                id++;
-            }
-
-            writeIndex = (writeIndex + 1) % SPECTROGRAM_MAX_WIDTH;
-            validColumnsInData = jmin(validColumnsInData + 1, SPECTROGRAM_MAX_WIDTH);
+        // Advance to next column when we've accumulated enough
+        if (accumulator >= frames_per_column) {
+            accumulator -= frames_per_column;
+            writeIndex = (writeIndex + 1) % numColumnsNeeded;
+            
+            // Clear next column
             for (int bin = 0; bin < numValidBins; ++bin)
                 spectrogram_data[bin][writeIndex] = 0.0f;
 
         }
 
-        numWritten++;
     }
 
     new_data_flag = true;
     SR = sample_rate;
-
 }
 
 void SpectrogramComponent::parameterChanged(const String &parameterID, float newValue)
@@ -147,7 +122,7 @@ void SpectrogramComponent::parameterChanged(const String &parameterID, float new
     // In case FFT size is changed.
     clearData();
     writeIndex = 0;
-    validColumnsInData = 0;
+    validColumnsInData = SPECTROGRAM_MAX_WIDTH; // Will be updated in next newDataBatch
     accumulator = 0.0f;
 }
 
@@ -248,6 +223,9 @@ void SpectrogramComponent::renderOpenGL()
 
     if (shader_uniforms->numIndex)
         shader_uniforms->numIndex->set(SPECTROGRAM_MAX_WIDTH);
+
+    if (shader_uniforms->validColumns)
+        shader_uniforms->validColumns->set(validColumnsInData.load());
 
     if (shader_uniforms->minFreq && shader_uniforms->maxFreq) {
         float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
@@ -375,6 +353,7 @@ SpectrogramComponent::Uniforms::Uniforms(OpenGLContext& OpenGL_Context, OpenGLSh
     numBins.reset(createUniform(OpenGL_Context, shader_program, "numBins"));
     startIndex.reset(createUniform(OpenGL_Context, shader_program, "startIndex"));
     numIndex.reset(createUniform(OpenGL_Context, shader_program, "numIndex"));
+    validColumns.reset(createUniform(OpenGL_Context, shader_program, "validColumns"));
     minFreq.reset(createUniform(OpenGL_Context, shader_program, "minFreq"));
     maxFreq.reset(createUniform(OpenGL_Context, shader_program, "maxFreq"));
     sampleRate.reset(createUniform(OpenGL_Context, shader_program, "sampleRate"));
