@@ -11,7 +11,7 @@
 using namespace juce;
 
 #define OSC_FPS 60
-#define OSC_MAX_WIDTH 1500
+#define OSC_MAX_WIDTH 2000
 
 class OscilloscopeComponent
     : public Component,

@@ -21,8 +21,6 @@ SpectrogramComponent::SpectrogramComponent(
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
 
-    startTimerHz(SPECTROGRAM_FPS);
-
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
@@ -220,6 +218,8 @@ void SpectrogramComponent::renderOpenGL()
 
     if (shader_uniforms->startIndex)
         shader_uniforms->startIndex->set(writeIndex.load());
+    
+    std::cout << "Spetrogram : " << writeIndex.load() << " \n";
 
     if (shader_uniforms->numIndex)
         shader_uniforms->numIndex->set(SPECTROGRAM_MAX_WIDTH);

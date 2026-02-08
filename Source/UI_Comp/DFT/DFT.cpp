@@ -39,6 +39,8 @@ PFFFT::PFFFT(
             true
         );
     }
+
+    startTimerHz(FPS);
 }
 
 PFFFT::~PFFFT()
@@ -51,6 +53,12 @@ PFFFT::~PFFFT()
     pffft_aligned_free(pffft_work);
     pffft_aligned_free(pffft_output);
     
+}
+
+void PFFFT::timerCallback()
+{
+    spectral_analyser_component->timerCallback();
+    spectrogram_component->timerCallback();
 }
 
 std::array<Component*, 2> PFFFT::getSpectrogramAndAnalyser()

@@ -36,7 +36,7 @@ OscilloscopeComponent::~OscilloscopeComponent()
 
 void OscilloscopeComponent::timerCallback()
 {
-    if (trigger_repaint)
+    if (trigger_repaint && new_data_flag)
         opengl_context.triggerRepaint();
 }
 
@@ -305,6 +305,8 @@ void OscilloscopeComponent::renderOpenGL()
 
     if (shader_uniforms->startIndex)
         shader_uniforms->startIndex->set(writeIndex.load());
+
+    std::cout << "Oscilloscope : " << writeIndex.load() << " ";
 
     if (shader_uniforms->numIndex)
         shader_uniforms->numIndex->set(OSC_MAX_WIDTH);

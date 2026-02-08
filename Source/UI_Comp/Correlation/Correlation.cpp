@@ -146,6 +146,27 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
     {
         float left_sample  = std::isnan(left_channel[i])  ? 0.0f : std::clamp(left_channel[i],  -1.0f, 1.0f);
         float right_sample = std::isnan(right_channel[i]) ? 0.0f : std::clamp(right_channel[i], -1.0f, 1.0f);
+        
+        // Send to opengl_comp every 3rd sample
+            
+        float xx = left_sample * 0.5f + 0.5f;
+        float yy = right_sample * 0.5f + 0.5f;
+        xx = jmap<float>(xx, 0.0f, 1.0f, 0.15f, 0.85f);
+        yy = jmap<float>(yy, 0.0f, 1.0f, 0.15f, 0.85f);
+        
+        const float centerX = 0.5f;
+        const float centerY = 0.5f;
+        float translatedX = xx - centerX;
+        float translatedY = yy - centerY;
+        const float cosAngle = 0.707107f;
+        const float sinAngle = 0.707107f;
+        float rotatedX = translatedX * cosAngle - translatedY * sinAngle;
+        float rotatedY = translatedX * sinAngle + translatedY * cosAngle;
+        float finalX = std::clamp(rotatedX + centerX, 0.0f, 1.0f);
+        float finalY = std::clamp(rotatedY + centerY, 0.0f, 1.0f);
+        
+        opengl_comp.newDataPoint(finalX, finalY);
+        
         float LL = left_sample  * left_sample;
         float RR = right_sample * right_sample;
         float LR = left_sample  * right_sample;
@@ -201,33 +222,6 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             x_comp = x_comp * 0.5f + 0.5f;
             x_comp = std::clamp(x_comp, 0.0f, 1.0f);
 
-            float xx = left_sample * 0.5 + 0.5;
-            float yy = right_sample * 0.5 + 0.5;
-
-            xx = jmap<float>(xx, 0.0, 1.0, 0.15, 0.85);
-            yy = jmap<float>(yy, 0.0, 1.0, 0.15, 0.85);
-
-            const float centerX = 0.5f;
-            const float centerY = 0.5f;
-
-            float translatedX = xx - centerX;
-            float translatedY = yy - centerY;
-
-            const float cosAngle = 0.707107f;
-            const float sinAngle = 0.707107f;
-
-            float rotatedX = translatedX * cosAngle - translatedY * sinAngle;
-            float rotatedY = translatedX * sinAngle + translatedY * cosAngle;
-
-            float finalX = rotatedX + centerX;
-            float finalY = rotatedY + centerY;
-
-            if (finalX < 0.0f) finalX = 0.0f;
-            if (finalX > 1.0f) finalX = 1.0f;
-            if (finalY < 0.0f) finalY = 0.0f;
-            if (finalY > 1.0f) finalY = 1.0f;
-
-            opengl_comp.newDataPoint(finalX, finalY);
             correl_amnt_comp.newPoint(y_comp);
             volume_meter_comp.newPoint(rmsL, rmsR);
             balance_amnt_comp.newPoint(x_comp);
@@ -347,81 +341,79 @@ newOpenGLContextCreated()
 
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::renderOpenGL()
 {
-    jassert(OpenGLHelpers::isContextActive());
+    using namespace juce::gl;
+    
+    if (!shader) return;
 
-    using namespace ::juce::gl;
-    // Setup viewport
     const float renderingScale = (float)opengl_context.getRenderingScale();
     glViewport(0, 0, roundToInt(renderingScale * getWidth()), roundToInt(renderingScale * getHeight()));
 
-    //// Enable alpha blending
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    // Make sure there is a shader.
-    if (!shader) return;
-
+    OpenGLHelpers::clear(Colours::black);
+    
     shader->use();
-
-    int read_index_loaded_val = ring_buf_read_index.load();
-
-    if (shader_uniforms)
-    {
-        shader_uniforms->resolution->
-                set((GLfloat)(renderingScale * getWidth()), (GLfloat)(renderingScale * getHeight()));
-        shader_uniforms->readIndex->set((GLint)read_index_loaded_val);
-        shader_uniforms->pointsTex->set(0);
-        shader_uniforms->maxIndex->set(RING_BUFFER_TEXEL_SIZE);
-
-        shader_uniforms->col1->set(colours[0], colours[1], colours[2]);
-        shader_uniforms->col2->set(colours[3], colours[4], colours[5]);
-    }
-
-    // Define vertices and indices for a square (full viewport).
-    GLfloat vertices[] = {
-        1.0f,  1.0f,
-        1.0f, -1.0f,
-       -1.0f, -1.0f,
-       -1.0f,  1.0f,
+    
+    int read_idx = ring_buf_read_index.load();
+    
+    // Build vertex buffer with positions and colors
+    std::vector<GLfloat> vertices;
+    vertices.reserve((RING_BUFFER_TEXEL_SIZE + 12) * 5); // Lissajous + grid lines
+    
+    // Grid lines (diamond overlay)
+    const float gridColor = 0.3f;
+    GLfloat gridLines[] = {
+        // X-axis lines
+        0.0f, 0.5f, gridColor, gridColor, gridColor,
+        0.5f, 0.0f, gridColor, gridColor, gridColor,
+        0.0f, 0.5f, gridColor, gridColor, gridColor,
+        0.5f, 1.0f, gridColor, gridColor, gridColor,
+        1.0f, 0.5f, gridColor, gridColor, gridColor,
+        0.5f, 0.0f, gridColor, gridColor, gridColor,
+        1.0f, 0.5f, gridColor, gridColor, gridColor,
+        0.5f, 1.0f, gridColor, gridColor, gridColor,
+        // Diagonal lines
+        0.25f, 0.75f, gridColor, gridColor, gridColor,
+        0.75f, 0.25f, gridColor, gridColor, gridColor,
+        0.25f, 0.25f, gridColor, gridColor, gridColor,
+        0.75f, 0.75f, gridColor, gridColor, gridColor
     };
-    GLuint indices[] = {
-        0, 1, 3,
-        1, 2, 3
-    };
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_1D, dataTexture);
-    if (dirty.load())
-    {
-        glTexSubImage1D(
-            GL_TEXTURE_1D, 
-            0, 
-            0,
-            RING_BUFFER_TEXEL_SIZE, // each texel is 2 floats.
-            GL_RG,
-            GL_FLOAT,
-            ring_buffer);
-        dirty.store(false);
-    }
-
-    // Bind and fill VBO
+    
+    // Draw grid
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-
-    // Bind and fill EBO
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STREAM_DRAW);
-
-    // Setup vertex attribute pointer (location 0, 3 floats per vertex)
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(gridLines), gridLines, GL_STREAM_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)0);
     glEnableVertexAttribArray(0);
-
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    // Cleanup: unbind buffers and disable attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    glLineWidth(1.5f * renderingScale);
+    glDrawArrays(GL_LINES, 0, 12);
+    
+    // Lissajous curve
+    for (int i = 0; i < RING_BUFFER_TEXEL_SIZE; ++i)
+    {
+        int idx = (read_idx + i) % RING_BUFFER_TEXEL_SIZE;
+        float x = ring_buffer[2 * idx];
+        float y = ring_buffer[2 * idx + 1];
+        
+        float t = (float)i / (float)(RING_BUFFER_TEXEL_SIZE - 1);
+        float r = colours[0] * (1.0f - t) + colours[3] * t;
+        float g = colours[1] * (1.0f - t) + colours[4] * t;
+        float b = colours[2] * (1.0f - t) + colours[5] * t;
+        
+        vertices.push_back(x);
+        vertices.push_back(y);
+        vertices.push_back(r * t * t);
+        vertices.push_back(g * t * t);
+        vertices.push_back(b * t * t);
+    }
+    
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STREAM_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glLineWidth(2.0f * renderingScale);
+    glDrawArrays(GL_LINE_STRIP, 0, RING_BUFFER_TEXEL_SIZE);
+    
     glDisableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDisableVertexAttribArray(1);
 }
 
 void PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::
@@ -474,12 +466,6 @@ createShaders()
 PhaseCorrelationAnalyserComponent::CorrelationOpenGLComponent::Uniforms::
 Uniforms(OpenGLContext& OpenGL_Context, OpenGLShaderProgram& shader_program)
 {
-    resolution.reset(createUniform(OpenGL_Context, shader_program, "resolution"));
-    readIndex.reset(createUniform(OpenGL_Context, shader_program, "readIndex"));
-    pointsTex.reset(createUniform(OpenGL_Context, shader_program, "pointsTex"));
-    maxIndex.reset(createUniform(OpenGL_Context, shader_program, "maxIndex"));
-    col1.reset(createUniform(OpenGL_Context, shader_program, "col1"));
-    col2.reset(createUniform(OpenGL_Context, shader_program, "col2"));
 }
 
 OpenGLShaderProgram::Uniform* PhaseCorrelationAnalyserComponent::

@@ -8,9 +8,9 @@
 using namespace juce;
 
 // x, y interleaved.
-#define RING_BUFFER_SIZE 1024 
-#define RING_BUFFER_TEXEL_SIZE 512
-#define REFRESH_RATE_HZ 100
+#define RING_BUFFER_SIZE 4096
+#define RING_BUFFER_TEXEL_SIZE 2048
+#define REFRESH_RATE_HZ 60
 
 class PhaseCorrelationAnalyserComponent 
     :   public Component,
@@ -97,96 +97,20 @@ public:
         const char* vertexShader =
         R"(
             attribute vec2 position;
+            attribute vec3 color;
+            varying vec3 vColor;
                             
             void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
+                gl_Position = vec4(position * 2.0 - 1.0, 0.0, 1.0);
+                vColor = color;
             }
         )";
 
         const char* fragmentShader = R"(
-        uniform vec2 resolution;
-        uniform sampler1D pointsTex;
-        uniform int readIndex;
-        uniform int maxIndex;
-        uniform vec3 col1;
-        uniform vec3 col2;
-
-        // Returns 1.0 if the fragment is within the line width, 0.0 otherwise
-        float drawLine(vec2 p1, vec2 p2, vec2 uv, float thicknessPx)
-        {
-            float halfThickness = 0.5 * thicknessPx;
-            float one_px = halfThickness / resolution.x;
-
-            float d = distance(p1, p2);
-            float t = clamp(dot(uv - p1, p2 - p1) / (d * d), 0.0, 1.0);
-            vec2 closest = mix(p1, p2, t);
-
-            float dist = distance(uv, closest);
-
-            return smoothstep(one_px, 0.0, dist);
-        }
-
-        float drawPoint(vec2 p1, vec2 uv, float thicknessPx)
-        {
-            float one_px = thicknessPx / resolution.x;
-            float d = distance(p1, uv);
-            return float(d < one_px);
-        }
-
-        vec2 fetchPoint(int index) {
-            return texelFetch(pointsTex, index, 0).rg;
-        }
+        varying vec3 vColor;
 
         void main() {
-            vec2 uv = gl_FragCoord.xy / resolution.xy;
-
-            vec2 p1 = vec2(0.25, 0.75);
-            vec2 p2 = vec2(0.25, 0.25);
-            vec2 p3 = vec2(0.75, 0.25);
-            vec2 p4 = vec2(0.75, 0.75);
-
-            float thicknessPx = 3.0;
-
-            float lines =
-                drawLine(vec2(0.0, 0.5), vec2(0.5, 0.0), uv, thicknessPx) +
-                drawLine(vec2(0.0, 0.5), vec2(0.5, 1.0), uv, thicknessPx) +
-                drawLine(vec2(1.0, 0.5), vec2(0.5, 0.0), uv, thicknessPx) +
-                drawLine(vec2(1.0, 0.5), vec2(0.5, 1.0), uv, thicknessPx) +
-
-                drawLine(p1, p3, uv, thicknessPx) +
-                drawLine(p2, p4, uv, thicknessPx);
-
-            // colour of the pixel before the path.
-            float highlight = 0.3 * lines;
-            float path = 0.0;                
-
-            vec3 path_colour = vec3(0.0);
-            float total_weight = 0.0;
-
-            // now the path.
-            for (int i = 0; i < maxIndex; ++i) {
-                int i0 = (readIndex + i) % maxIndex;
-                int i1 = (readIndex + i + 1) % maxIndex;
-
-                vec2 p0 = fetchPoint(i0);
-                vec2 p1 = fetchPoint(i1);
-
-                // stuff is reversed because that is how the points are written.
-                float t = float(i) / float(maxIndex - 1);
-                float fade = pow(t, 2.0);
-
-                float segment = drawLine(p0, p1, uv, thicknessPx) * fade;
-
-                vec3 segment_colour = mix(col1, col2, t);
-
-                path_colour += segment_colour * segment;
-                total_weight += segment;
-            }
-
-            // Normalize so overlapping segments don't brighten path
-            vec3 highlight_colour = vec3(highlight);
-
-            gl_FragColor = vec4( highlight + path_colour, 1.0);
+            gl_FragColor = vec4(vColor, 1.0);
         })";
 
         struct Uniforms
@@ -196,14 +120,6 @@ public:
             Uniforms(
                 OpenGLContext& OpenGL_Context,
                 OpenGLShaderProgram& shader_program);
-
-            std::unique_ptr<OpenGLShaderProgram::Uniform> 
-                readIndex,
-                resolution,
-                pointsTex,
-                maxIndex,
-                col1,
-                col2;
 
         private:
 

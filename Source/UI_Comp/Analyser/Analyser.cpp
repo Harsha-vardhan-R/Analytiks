@@ -17,8 +17,6 @@ SpectrumAnalyserComponent::SpectrumAnalyserComponent(
     opengl_context.setComponentPaintingEnabled(false);
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
-
-    startTimer(1000.0f / (float)REFRESH_RATE);
     
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");

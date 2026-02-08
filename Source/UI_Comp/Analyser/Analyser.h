@@ -10,12 +10,10 @@
 using namespace juce;
 
 #define AMPLITUDE_DATA_SIZE 8192
-#define REFRESH_RATE 60
 
 class SpectrumAnalyserComponent
     : public Component,
-      public OpenGLRenderer,
-      public Timer
+      public OpenGLRenderer
 {
 public:
     SpectrumAnalyserComponent(
@@ -26,7 +24,7 @@ public:
     void prepareToPlay(float SampleRate, float BlockSize);
     void clearData();
     
-    void timerCallback() override;
+    void timerCallback();
 
     // Call this with FFT bin data. num_bins should be (fft_size / 2) + 1
     void newData(float* data, int num_bins);

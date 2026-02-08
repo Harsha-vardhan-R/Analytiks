@@ -23,6 +23,7 @@
 
 using namespace juce;
 
+#define FPS 60
 #define MAX_BUFFER_SIZE 8192
 #define INPUT_RING_BUFFER_SIZE 8192 * 4
 #define MAX_ACCUMULATED 32
@@ -31,14 +32,16 @@ using namespace juce;
 // takes audio samples, returns amplitude as a callback when available..
 // on changing the fft order this class listens to the changes and automatically 
 // apply them from the next process block.
-class PFFFT
-{
+class PFFFT :
+      private Timer {
 public:
 
     // callback happens when a new frame of data is available.
     // send back the calculated amplitudes, with the number of bins.
     PFFFT(AudioProcessorValueTreeState& apvts_reference);
     ~PFFFT();
+
+    void timerCallback() override;
 
     std::array<Component*, 2> getSpectrogramAndAnalyser();
     void prepareToPlay(double sampleRate, int samplesPerBlock);
