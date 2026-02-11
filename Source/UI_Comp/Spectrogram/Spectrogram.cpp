@@ -1,5 +1,7 @@
 #include "Spectrogram.h"
 #include "../util.h"
+#include <cstdio>
+#include <cmath>
 
 SpectrogramComponent::SpectrogramComponent(
     AudioProcessorValueTreeState& apvts_reference)
@@ -17,9 +19,12 @@ SpectrogramComponent::SpectrogramComponent(
 
     opengl_context.setOpenGLVersionRequired(OpenGLContext::OpenGLVersion::openGL3_2);
     opengl_context.setRenderer(this);
-    opengl_context.setComponentPaintingEnabled(false);
+    opengl_context.setComponentPaintingEnabled(true);
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
+    
+    setRepaintsOnMouseActivity(true);
+    startTimerHz(30); // Timer for overlay updates when data changes (scrolling, panning)
 
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
@@ -41,11 +46,97 @@ SpectrogramComponent::~SpectrogramComponent()
 
 void SpectrogramComponent::timerCallback()
 {
-    // trigger repaint at fixed fps.
-    if (new_data_flag && trigger_repaint)
+    // Trigger OpenGL render at fixed fps
+    if (trigger_repaint)
         opengl_context.triggerRepaint();
+    // Repaint overlay when data changes (scrolling, panning)
+    if (mouseOver && new_data_flag)
+        repaint();
 }
 
+void SpectrogramComponent::mouseEnter(const juce::MouseEvent& e) {
+    mouseOver = true;
+    lastMousePos = e.getPosition();
+    repaint();
+}
+
+void SpectrogramComponent::mouseExit(const juce::MouseEvent&) {
+    mouseOver = false;
+    repaint();
+}
+
+void SpectrogramComponent::mouseMove(const juce::MouseEvent& e) {
+    lastMousePos = e.getPosition();
+    repaint();
+}
+
+float SpectrogramComponent::getFrequencyFromNormalizedY(float normalizedY) const {
+    float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
+    float max_freq = std::max((float)apvts_ref.getRawParameterValue("sp_rng_max")->load(), min_freq + 100.0f);
+    // Apply logarithmic frequency mapping (same as freqFromNorm in shader)
+    return min_freq * std::pow(max_freq / min_freq, normalizedY);
+}
+
+void SpectrogramComponent::getFrequencyToNoteBuf(float frequency, char* buf) const {
+    static const char* noteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    if (frequency <= 0.0f) {
+        std::snprintf(buf, 8, "-");
+        return;
+    }
+    int midiNote = int(69 + 12 * std::log2(frequency / 440.0f) + 0.5f);
+    int noteIdx = (midiNote % 12 + 12) % 12; // always positive
+    int octave = midiNote / 12 - 1;
+    std::snprintf(buf, 8, "%s%d", noteNames[noteIdx], octave);
+}
+
+juce::String SpectrogramComponent::frequencyToNote(float frequency) {
+    char buf[8];
+    getFrequencyToNoteBuf(frequency, buf);
+    return juce::String(buf);
+}
+
+void SpectrogramComponent::paint(Graphics& g) {
+    if (!mouseOver) return;  // Only show overlay when mouse is over
+    
+    // Get normalized Y coordinate (0 = top = high frequency, 1 = bottom = low frequency)
+    float normalizedY = juce::jlimit(0.0f, 1.0f, (getHeight() - lastMousePos.y) / (float)std::max(1, getHeight()));
+    float freq = getFrequencyFromNormalizedY(normalizedY);
+    
+    // Get normalized X coordinate (column index)
+    float normalizedX = juce::jlimit(0.0f, 1.0f, lastMousePos.x / (float)std::max(1, getWidth()));
+    int col = int(normalizedX * validColumnsInData.load());
+    col = juce::jlimit(0, validColumnsInData.load() - 1, col);
+    
+    // Get bin from frequency
+    float sampleRate = SR;
+    int numBins = numValidBins.load();
+    float fftSize = float(2 * (numBins - 1));
+    int bin = juce::jlimit(0, numBins - 1, (int)(freq * fftSize / sampleRate));
+    
+    // Get value from spectrogram data
+    float value = spectrogram_data[bin][col];
+    
+    // Convert normalized dB (0-1) back to actual dB range (-80 to 0)
+    float dB = value * 80.0f - 80.0f;
+    
+    // Get note name
+    char noteBuf[8];
+    getFrequencyToNoteBuf(freq, noteBuf);
+    
+    // Build text using char buffer to avoid encoding issues
+    char textBuf[256];
+    std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s\nLevel: %.2f dB", freq, noteBuf, dB);
+    juce::String text(textBuf);
+
+    auto bounds = getLocalBounds().removeFromRight(120).removeFromBottom(50);
+    bounds.reduce(4, 4);
+
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::Font(12.0f));
+    g.drawFittedText(text, bounds.reduced(4), juce::Justification::topLeft, 3);
+}
 
 void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data, int valid, int numBins, float bpm, float sample_rate, int N, int D)
 {
@@ -77,18 +168,12 @@ void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data
     float totalFramesForHistory =
         historySeconds * fftFramesPerSecond;
 
-    float frames_per_column =
-        totalFramesForHistory / (float)SPECTROGRAM_MAX_WIDTH;
+    int numColumnsNeeded = jlimit(1, SPECTROGRAM_MAX_WIDTH, (int) totalFramesForHistory);
 
-    // if (frames_per_column < 0.005)// this component becomes unusable
-    //     return;
-    
-    // Calculate how many columns we actually need for this history
-    int numColumnsNeeded = (int)(totalFramesForHistory / jmax(1.0f, frames_per_column));
-    numColumnsNeeded = jlimit(1, SPECTROGRAM_MAX_WIDTH, numColumnsNeeded);
-    
-    // Update valid columns
     validColumnsInData = numColumnsNeeded;
+
+    float frames_per_column =
+        totalFramesForHistory / (float) numColumnsNeeded;
 
     // Process each incoming FFT frame
     for (int id = 0; id < valid; ++id) {
@@ -219,8 +304,6 @@ void SpectrogramComponent::renderOpenGL()
     if (shader_uniforms->startIndex)
         shader_uniforms->startIndex->set(writeIndex.load());
     
-    std::cout << "Spetrogram : " << writeIndex.load() << " \n";
-
     if (shader_uniforms->numIndex)
         shader_uniforms->numIndex->set(SPECTROGRAM_MAX_WIDTH);
 

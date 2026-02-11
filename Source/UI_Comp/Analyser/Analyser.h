@@ -12,14 +12,21 @@ using namespace juce;
 #define AMPLITUDE_DATA_SIZE 8192
 
 class SpectrumAnalyserComponent
-    : public Component,
-      public OpenGLRenderer
+        : public Component,
+            public OpenGLRenderer
+            , private juce::Timer
 {
+
 public:
     SpectrumAnalyserComponent(
         AudioProcessorValueTreeState& apvts_reference,
         std::function<void(string)>& label_callback);
     ~SpectrumAnalyserComponent();
+
+    void mouseEnter(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void paint(Graphics& g) override;
 
     void prepareToPlay(float SampleRate, float BlockSize);
     void clearData();
@@ -33,7 +40,7 @@ public:
     void renderOpenGL() override;
     void openGLContextClosing() override;
 
-    void paint(Graphics& g) override {}
+    // Overlay paint is handled in paint()
     void resized() override {
         if (send_triggerRepaint) opengl_context.triggerRepaint();
     }
@@ -41,6 +48,9 @@ public:
     OpenGLContext opengl_context;
 
 private:
+    bool mouseOver = false;
+    juce::Point<int> lastMousePos;
+    void drawOverlay(juce::Graphics& g);
     AudioProcessorValueTreeState& apvts_ref;
     std::atomic<float> SR = 44100.0f;
     std::atomic<bool> pause = false;
@@ -50,9 +60,14 @@ private:
 
     // Amplitude data: direct FFT bin data
     GLfloat amplitude_data[AMPLITUDE_DATA_SIZE];
-    
     // Ribbon data: smoothed/onion-skin version (background bars)
     GLfloat ribbon_data[AMPLITUDE_DATA_SIZE];
+
+    // Overlay helpers
+    float getTopFrequency(float& outAmplitude) const;
+    juce::String frequencyToNote(float frequency);
+    void getFrequencyToNoteBuf(float frequency, char* buf) const;
+    float getVolumeLevel() const;
 
     // Powers of 2 for FFT sizes
     int po2[5] = { 512, 1024, 2048, 4096, 8192 };

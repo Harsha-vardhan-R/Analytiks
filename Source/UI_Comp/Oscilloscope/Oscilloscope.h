@@ -138,10 +138,11 @@ private:
         {
             vec2 uv = gl_FragCoord.xy / resolution.xy;
 
-            int col = int(floor(uv.x * float(numIndex)));
-            col = clamp(col, 0, numIndex - 1);
+            float colF = uv.x * float(validColumns);
+            int col = int(floor(colF));
+            col = clamp(col, 0, validColumns - 1);
             if (scroll == 1)
-                col = (startIndex + col) % numIndex;
+                col = (startIndex + col) % validColumns;
 
             vec3 bg = vec3(0.0);
             float gridY = abs(fract(uv.y * 8.0) - 0.5);
@@ -192,7 +193,7 @@ private:
                 }
                 else
                 {
-                    int col2 = (col + 1) % numIndex;
+                    int col2 = (col + 1) % validColumns;
                     float s2 = fetchMinMaxS(col2, chan).b;
 
                     float y0 = 0.5 + 0.5 * s;
@@ -238,7 +239,7 @@ private:
                 }
                 else
                 {
-                    int col2 = (col + 1) % numIndex;
+                    int col2 = (col + 1) % validColumns;
                     float s2 = fetchMinMaxS(col2, 0).b;
 
                     float y0 = 0.5 + 0.5 * s;

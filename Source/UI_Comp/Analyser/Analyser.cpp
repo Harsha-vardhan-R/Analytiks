@@ -1,4 +1,5 @@
 #include "Analyser.h"
+#include <cstdio>
 
 SpectrumAnalyserComponent::SpectrumAnalyserComponent(
     AudioProcessorValueTreeState& apvts_reference,
@@ -14,13 +15,31 @@ SpectrumAnalyserComponent::SpectrumAnalyserComponent(
 
     opengl_context.setOpenGLVersionRequired(OpenGLContext::OpenGLVersion::openGL3_2);
     opengl_context.setRenderer(this);
-    opengl_context.setComponentPaintingEnabled(false);
+    opengl_context.setComponentPaintingEnabled(true);
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
     
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
     else DBG("V SYNC ENABLED");
+    
+    setRepaintsOnMouseActivity(true);
+    startTimerHz(30); // For overlay updates
+}
+void SpectrumAnalyserComponent::mouseEnter(const juce::MouseEvent& e) {
+    mouseOver = true;
+    lastMousePos = e.getPosition();
+    repaint();
+}
+
+void SpectrumAnalyserComponent::mouseExit(const juce::MouseEvent&) {
+    mouseOver = false;
+    repaint();
+}
+
+void SpectrumAnalyserComponent::mouseMove(const juce::MouseEvent& e) {
+    lastMousePos = e.getPosition();
+    repaint();
 }
 
 SpectrumAnalyserComponent::~SpectrumAnalyserComponent()
@@ -43,6 +62,128 @@ void SpectrumAnalyserComponent::clearData()
 void SpectrumAnalyserComponent::timerCallback()
 {
     if (send_triggerRepaint) opengl_context.triggerRepaint();
+    repaint();
+}
+// Paint overlay in paint() override
+void SpectrumAnalyserComponent::paint(Graphics& g)
+{
+    drawOverlay(g);
+}
+float SpectrumAnalyserComponent::getTopFrequency(float& outAmplitude) const {
+    float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
+    float max_freq = std::max((float)apvts_ref.getRawParameterValue("sp_rng_max")->load(), min_freq + 100.0f);
+    float sampleRate = SR.load();
+    int numBins = bins_number.load();
+    float fftSize = float(2 * (numBins - 1));
+    int minBin = std::max(0, int(min_freq * fftSize / sampleRate));
+    int maxBin = std::min(numBins - 1, int(max_freq * fftSize / sampleRate));
+    float maxAmp = 0.0f;
+    int maxIdx = minBin;
+    for (int i = minBin; i <= maxBin; ++i) {
+        if (amplitude_data[i] > maxAmp) {
+            maxAmp = amplitude_data[i];
+            maxIdx = i;
+        }
+    }
+    outAmplitude = maxAmp;
+    float freq = (sampleRate * maxIdx) / fftSize;
+    return freq;
+}
+
+// Overlay: Convert frequency to note name and write to buffer
+void SpectrumAnalyserComponent::getFrequencyToNoteBuf(float frequency, char* buf) const {
+    static const char* noteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    if (frequency <= 0.0f) {
+        std::snprintf(buf, 8, "-");
+        return;
+    }
+    int midiNote = int(69 + 12 * std::log2(frequency / 440.0f) + 0.5f);
+    int noteIdx = (midiNote % 12 + 12) % 12; // always positive
+    int octave = midiNote / 12 - 1;
+    std::snprintf(buf, 8, "%s%d", noteNames[noteIdx], octave);
+}
+
+// Overlay: Convert frequency to note name
+juce::String SpectrumAnalyserComponent::frequencyToNote(float frequency) {
+    char buf[8];
+    getFrequencyToNoteBuf(frequency, buf);
+    return juce::String(buf);
+}
+
+// Overlay: Get overall volume (RMS of visible bins)
+float SpectrumAnalyserComponent::getVolumeLevel() const {
+    float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
+    float max_freq = std::max((float)apvts_ref.getRawParameterValue("sp_rng_max")->load(), min_freq + 100.0f);
+    float sampleRate = SR.load();
+    int numBins = bins_number.load();
+    float fftSize = float(2 * (numBins - 1));
+    int minBin = std::max(0, int(min_freq * fftSize / sampleRate));
+    int maxBin = std::min(numBins - 1, int(max_freq * fftSize / sampleRate));
+    float sum = 0.0f;
+    int count = 0;
+    for (int i = minBin; i <= maxBin; ++i) {
+        sum += amplitude_data[i] * amplitude_data[i];
+        ++count;
+    }
+    return count > 0 ? std::sqrt(sum / count) : 0.0f;
+}
+
+// Overlay: Draw overlay text
+void SpectrumAnalyserComponent::drawOverlay(juce::Graphics& g) {
+    float amp = 0.0f;
+    float freq = 0.0f;
+    char noteBuf[8] = { '-', '\0', 0, 0, 0, 0, 0, 0 };
+    float vol = 0.0f;
+
+    if (mouseOver) {
+        // Get frequency under mouse X position using logarithmic mapping (same as shader)
+        float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
+        float max_freq = std::max((float)apvts_ref.getRawParameterValue("sp_rng_max")->load(), min_freq + 100.0f);
+        float sampleRate = SR.load();
+        int numBins = bins_number.load();
+        float fftSize = float(2 * (numBins - 1));
+        
+        // Map mouse position to normalized 0-1 coordinate
+        float t = juce::jlimit(0.0f, 1.0f, (getHeight() - lastMousePos.y) / (float)std::max(1, getHeight()));
+        // Apply logarithmic frequency mapping (same as freqFromNorm in shader)
+        freq = min_freq * std::pow(max_freq / min_freq, t);
+        
+        // Get bin and amplitude
+        int bin = juce::jlimit(0, (int)numBins - 1, (int)(freq * fftSize / sampleRate));
+        amp = amplitude_data[bin];
+        
+        // Get note as char buffer
+        getFrequencyToNoteBuf(freq, noteBuf);
+        // Volume = amplitude at this bin (not RMS)
+        vol = amp;
+    } else {
+        freq = getTopFrequency(amp);
+        getFrequencyToNoteBuf(freq, noteBuf);
+        vol = getVolumeLevel();
+    }
+
+    // Convert normalized dB (0-1) back to actual dB range (-80 to 0)
+    // The amplitude_data is mapped from -80 to 0 dB into 0-1 range
+    float dB = vol * 80.0f - 80.0f;
+    
+    // Build text using char buffer to avoid encoding issues
+    char textBuf[256];
+    if (mouseOver) {
+        std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s\nLevel: %.2f dB", freq, noteBuf, dB);
+    } else {
+        std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s", freq, noteBuf);
+    }
+    
+    juce::String text(textBuf);
+
+    auto bounds = getLocalBounds().removeFromRight(120).removeFromBottom(50);
+    bounds.reduce(4, 4);
+
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::Font(12.0f));
+    g.drawFittedText(text, bounds.reduced(4), juce::Justification::topLeft, 3);
 }
 
 void SpectrumAnalyserComponent::newOpenGLContextCreated()

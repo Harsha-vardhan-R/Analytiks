@@ -49,8 +49,8 @@ void OscilloscopeComponent::parameterChanged(const String& parameterID, float)
 void OscilloscopeComponent::clearData()
 {
     writeIndex.store(0);
-    accumulator = 0.0f;
-    validColumnsInData.store(OSC_MAX_WIDTH);
+    accumulator = 0.0;
+    validColumnsInData.store(1);
     totalSamplesWritten = 0;
 
     for (int c = 0; c < OSC_MAX_WIDTH; ++c)
@@ -87,9 +87,12 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
     float secondsPerBar   = (60.0f / bpm) * N;
     float historySeconds  = barsPerWindow * secondsPerBar;
 
-    float samples_per_column = (historySeconds * sample_rate) / (float) OSC_MAX_WIDTH;
-    if (samples_per_column < 1.0f)
-        samples_per_column = 1.0f;
+    float totalSamplesForHistory = historySeconds * sample_rate;
+
+    int numColumnsNeeded = jlimit(1, OSC_MAX_WIDTH, (int)totalSamplesForHistory);
+    validColumnsInData.store(numColumnsNeeded, std::memory_order_relaxed);
+
+    float samples_per_column = totalSamplesForHistory / (float) numColumnsNeeded;
 
     bool zoomedIn = (samples_per_column <= 25.0f);
     renderMode.store(zoomedIn ? 1 : 0, std::memory_order_relaxed);
@@ -159,13 +162,14 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
             }
         }
 
-        accumulator += 1.0f;
+        accumulator += 1.0;
 
         if (accumulator >= samples_per_column)
         {
             accumulator -= samples_per_column;
 
-            int next = (wi + 1) % OSC_MAX_WIDTH;
+            int maxCols = validColumnsInData.load(std::memory_order_relaxed);
+            int next = (wi + 1) % maxCols;
 
             oscMin[0][next] =  0.0f;
             oscMax[0][next] =  0.0f;
@@ -176,9 +180,6 @@ void OscilloscopeComponent::newAudioBatch(const float* left, const float* right,
             oscSample[1][next] = 0.0f;
 
             writeIndex.store(next, std::memory_order_relaxed);
-
-            int v = validColumnsInData.load(std::memory_order_relaxed);
-            validColumnsInData.store(jmin(v + 1, OSC_MAX_WIDTH), std::memory_order_relaxed);
         }
     }
 
@@ -306,7 +307,7 @@ void OscilloscopeComponent::renderOpenGL()
     if (shader_uniforms->startIndex)
         shader_uniforms->startIndex->set(writeIndex.load());
 
-    std::cout << "Oscilloscope : " << writeIndex.load() << " ";
+    // std::cout << "Oscilloscope : " << writeIndex.load() << " ";
 
     if (shader_uniforms->numIndex)
         shader_uniforms->numIndex->set(OSC_MAX_WIDTH);

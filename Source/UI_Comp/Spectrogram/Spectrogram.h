@@ -19,14 +19,15 @@ using namespace juce;
 class SpectrogramComponent 
     : public Component,
       public OpenGLRenderer,
-      private AudioProcessorValueTreeState::Listener
+      private AudioProcessorValueTreeState::Listener,
+      public Timer
 {
 public:
 
     SpectrogramComponent(AudioProcessorValueTreeState& apvts_reference);
     ~SpectrogramComponent() override;
 
-    void timerCallback();
+    void timerCallback() override;
     void newDataBatch(std::array<std::vector<float>, 32>& data, int valid, int numBins, float bpm, float sample_rate, int N, int D);
 
     void parameterChanged(const String& parameterID, float newValue) override;
@@ -38,8 +39,12 @@ public:
     void renderOpenGL() override;
     void openGLContextClosing() override;
 
-    void paint(Graphics& g) override {};
+    void paint(Graphics& g) override;
     void resized() override;
+
+    void mouseEnter(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent& e) override;
 
 private:
     //linkDS& linker_ref;
@@ -62,9 +67,16 @@ private:
 
     float SR = 44100.0f;
 
+    bool mouseOver = false;
+    juce::Point<int> lastMousePos;
+
     float spectrogram_data[SPECTROGRAM_FFT_BINS_MAX][SPECTROGRAM_MAX_WIDTH] = { 0.0f };
 
     void createShaders();
+    void drawOverlay(juce::Graphics& g);
+    void getFrequencyToNoteBuf(float frequency, char* buf) const;
+    juce::String frequencyToNote(float frequency);
+    float getFrequencyFromNormalizedY(float normalizedY) const;
 
     struct Uniforms
     {
