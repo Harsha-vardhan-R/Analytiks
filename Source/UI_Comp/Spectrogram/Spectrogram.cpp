@@ -24,7 +24,7 @@ SpectrogramComponent::SpectrogramComponent(
     opengl_context.attachTo(*this);
     
     setRepaintsOnMouseActivity(true);
-    startTimerHz(30); // Timer for overlay updates when data changes (scrolling, panning)
+    startTimerHz(60); // Timer for overlay updates when data changes (scrolling, panning)
 
     bool vSync_success = opengl_context.setSwapInterval(1);
     if (!vSync_success) DBG("V SYNC NOT SUPPORTED");
@@ -207,6 +207,8 @@ void SpectrogramComponent::parameterChanged(const String &parameterID, float new
     writeIndex = 0;
     validColumnsInData = SPECTROGRAM_MAX_WIDTH; // Will be updated in next newDataBatch
     accumulator = 0.0f;
+    if (trigger_repaint)
+        opengl_context.triggerRepaint();
 }
 
 void SpectrogramComponent::clearData()

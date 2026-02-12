@@ -5,16 +5,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optional: enable architecture-specific tuning (e.g. -march=native). Off by default for portability.
+option(ENABLE_ARCH_TUNING "Enable -march=native or /arch:AVX2 optimizations (less portable)" OFF)
+
 if(WIN32)
-    set(CMAKE_GENERATOR_PLATFORM x64)
+    # Only configure platform when using a Visual Studio generator.
+    if(NOT DEFINED CMAKE_GENERATOR_PLATFORM AND CMAKE_GENERATOR MATCHES "Visual Studio")
+        set(CMAKE_GENERATOR_PLATFORM "x64" CACHE STRING "Windows target platform for Visual Studio generators")
+    endif()
 endif()
 
+# Allow the user or environment to override Apple-specific settings.
 if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+    if(NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Supported OSX architectures")
+    endif()
+    if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum OSX deployment target")
+    endif()
 endif()
 
-project(Analytiks VERSION 1.0.0)
+ # Project declaration (include C for pfft C sources)
+project(Analytiks VERSION 1.1.0 LANGUAGES C CXX)
 
 add_subdirectory(JUCE)
 
@@ -42,11 +54,13 @@ file(GLOB RWQUEUE_RESOURCES
     "rwqueue/*.cmake.in"
 )
 
+ # Choose sane defaults for plugin formats and allow overrides from the cache
 if(APPLE)
-    set(PLUGIN_FORMATS AU VST3 Standalone)
-else()  # Windows and Linux
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(DEFAULT_PLUGIN_FORMATS "AU;VST3;Standalone")
+else()
+    set(DEFAULT_PLUGIN_FORMATS "VST3;Standalone")
 endif()
+set(PLUGIN_FORMATS ${DEFAULT_PLUGIN_FORMATS} CACHE STRING "Plugin formats to build (semicolon-separated)")
 
 
 juce_add_plugin(
@@ -123,10 +137,24 @@ if(MSVC)
         $<$<CONFIG:Release>:/O2>
         $<$<CONFIG:Release>:/GL>
     )
+    # Enable MSVC link-time optimization / whole-program optimization for Release
+    set_target_properties(Analytiks PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    if(ENABLE_ARCH_TUNING)
+        target_compile_options(Analytiks PRIVATE $<$<CONFIG:Release>:/arch:AVX2>)
+    endif()
 else()
     target_compile_options(Analytiks PRIVATE
         $<$<CONFIG:Release>:-O3>
     )
+    # Add some additional speed-focused flags for GCC/Clang in Release
+    target_compile_options(Analytiks PRIVATE
+        $<$<CONFIG:Release>:-funroll-loops>
+    )
+    # Enable link-time optimization where supported
+    set_target_properties(Analytiks PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    if(ENABLE_ARCH_TUNING)
+        target_compile_options(Analytiks PRIVATE $<$<CONFIG:Release>:-march=native>)
+    endif()
 endif()
 
 set_source_files_properties(
