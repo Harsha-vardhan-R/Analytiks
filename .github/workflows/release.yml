@@ -1,0 +1,32 @@
+name: Create Release
+
+on:
+  workflow_run:
+    workflows:
+      - Build Windows
+      - Build macOS
+      - Build Linux
+    types:
+      - completed
+
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          files: |
+            artifacts/**/Analytiks-Windows.zip
+            artifacts/**/Analytiks-macOS.zip
+            artifacts/**/Analytiks-Linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

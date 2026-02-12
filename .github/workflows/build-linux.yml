@@ -19,8 +19,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: linux-build-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: linux-build-
+          key: linux-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: linux-
 
       - name: Install Dependencies
         run: |
@@ -47,8 +47,8 @@ jobs:
       - name: Package
         run: |
           mkdir -p out
-          find build -iname "*.vst3" -exec cp -r {} out/ \;
-          find build -type f -executable -exec cp {} out/ \;
+          cp -r build/Analytiks_artefacts/Release/VST3/Analytiks.vst3 out/ || true
+          cp build/Analytiks_artefacts/Release/Standalone/Analytiks out/ || true
           cd out
           zip -r ../Analytiks-Linux.zip *
 

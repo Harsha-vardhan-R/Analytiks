@@ -199,7 +199,7 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
         {
             sample_counter = 0;
 
-            float denom = std::sqrtf(sumLL * sumRR);
+            float denom = std::sqrt(sumLL * sumRR);
             if (denom < 1e-6f) denom = 1e-6f;
 
             float y_comp = sumLR / denom;
@@ -208,8 +208,8 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
             y_comp = 1.0 - y_comp;
             y_comp = std::clamp(y_comp, 0.0f, 1.0f);
 
-            float rmsL = std::sqrtf(sumLL / (float)window_length_samples);
-            float rmsR = std::sqrtf(sumRR / (float)window_length_samples);
+            float rmsL = std::sqrt(sumLL / (float)window_length_samples);
+            float rmsR = std::sqrt(sumRR / (float)window_length_samples);
 
             const float noiseGate = 5e-4f;
             if (rmsL < noiseGate) rmsL = 0.0f;

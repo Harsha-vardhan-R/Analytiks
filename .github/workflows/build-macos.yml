@@ -19,8 +19,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: macos-build-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: macos-build-
+          key: macos-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: macos-
 
       - name: Install Dependencies
         run: brew install freetype fontconfig
@@ -34,8 +34,8 @@ jobs:
       - name: Package
         run: |
           mkdir -p out
-          find build -iname "*.app" -exec cp -R {} out/ \;
-          find build -iname "*.vst3" -exec cp -R {} out/ \;
+          cp -R build/Analytiks_artefacts/Release/VST3/Analytiks.vst3 out/ || true
+          cp -R build/Analytiks_artefacts/Release/Standalone/Analytiks.app out/ || true
           cd out
           zip -r ../Analytiks-macOS.zip *
 
