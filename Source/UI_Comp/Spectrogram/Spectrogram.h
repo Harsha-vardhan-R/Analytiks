@@ -6,7 +6,7 @@
 
 #include "../../ds/dataStructure.h"
 
-#include "../../colourmaps.h"
+#include "../../ColourMaps.h"
 
 using namespace juce;
 
