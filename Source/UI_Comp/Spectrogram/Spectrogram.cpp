@@ -50,18 +50,20 @@ void SpectrogramComponent::timerCallback()
     if (trigger_repaint)
         opengl_context.triggerRepaint();
     // Repaint overlay when data changes (scrolling, panning)
-    if (mouseOver && new_data_flag)
+    if (mouseOver)
         repaint();
 }
 
 void SpectrogramComponent::mouseEnter(const juce::MouseEvent& e) {
     mouseOver = true;
     lastMousePos = e.getPosition();
+    setMouseCursor(MouseCursor::CrosshairCursor);
     repaint();
 }
 
 void SpectrogramComponent::mouseExit(const juce::MouseEvent&) {
     mouseOver = false;
+    setMouseCursor(MouseCursor::NormalCursor);
     repaint();
 }
 
@@ -98,6 +100,18 @@ juce::String SpectrogramComponent::frequencyToNote(float frequency) {
 void SpectrogramComponent::paint(Graphics& g) {
     if (!mouseOver) return;  // Only show overlay when mouse is over
     
+    g.setColour(juce::Colours::white.withAlpha(0.6f));
+
+    // Snap to pixel centre (avoids blurry 0.5px lines on retina)
+    float x = std::floor((float)lastMousePos.x);
+    float y = std::floor((float)lastMousePos.y);
+
+    // Vertical line
+    g.drawLine(x, 0.0f, x, (float)getHeight(), 1.0f);
+
+    // Horizontal line
+    g.drawLine(0.0f, y, (float)getWidth(), y, 1.0f);
+
     // Get normalized Y coordinate (0 = top = high frequency, 1 = bottom = low frequency)
     float normalizedY = juce::jlimit(0.0f, 1.0f, (getHeight() - lastMousePos.y) / (float)std::max(1, getHeight()));
     float freq = getFrequencyFromNormalizedY(normalizedY);

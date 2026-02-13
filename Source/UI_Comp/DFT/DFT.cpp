@@ -55,6 +55,12 @@ PFFFT::~PFFFT()
     
 }
 
+void PFFFT::play()
+{
+    // resets the indexes
+    spectrogram_component->parameterChanged("", 0.0f);
+}
+
 void PFFFT::timerCallback()
 {
     spectral_analyser_component->timerCallback();

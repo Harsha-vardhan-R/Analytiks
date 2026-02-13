@@ -148,7 +148,7 @@ void PhaseCorrelationAnalyserComponent::processBlock(AudioBuffer<float>& buffer)
         float right_sample = std::isnan(right_channel[i]) ? 0.0f : std::clamp(right_channel[i], -1.0f, 1.0f);
         
         // Send to opengl_comp every 3rd sample
-            
+        
         float xx = left_sample * 0.5f + 0.5f;
         float yy = right_sample * 0.5f + 0.5f;
         xx = jmap<float>(xx, 0.0f, 1.0f, 0.15f, 0.85f);

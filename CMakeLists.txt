@@ -26,7 +26,7 @@ if(APPLE)
 endif()
 
  # Project declaration (include C for pfft C sources)
-project(Analytiks VERSION 1.1.0 LANGUAGES C CXX)
+project(Analytiks VERSION 1.5.0 LANGUAGES C CXX)
 
 add_subdirectory(JUCE)
 

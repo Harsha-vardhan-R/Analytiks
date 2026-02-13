@@ -29,11 +29,13 @@ SpectrumAnalyserComponent::SpectrumAnalyserComponent(
 void SpectrumAnalyserComponent::mouseEnter(const juce::MouseEvent& e) {
     mouseOver = true;
     lastMousePos = e.getPosition();
+    setMouseCursor(MouseCursor::CrosshairCursor);
     repaint();
 }
 
 void SpectrumAnalyserComponent::mouseExit(const juce::MouseEvent&) {
     mouseOver = false;
+    setMouseCursor(MouseCursor::NormalCursor);
     repaint();
 }
 
@@ -136,6 +138,19 @@ void SpectrumAnalyserComponent::drawOverlay(juce::Graphics& g) {
     float vol = 0.0f;
 
     if (mouseOver) {
+
+        g.setColour(juce::Colours::white.withAlpha(0.6f));
+
+        // Snap to pixel centre (avoids blurry 0.5px lines on retina)
+        float x = std::floor((float)lastMousePos.x);
+        float y = std::floor((float)lastMousePos.y);
+
+        // Vertical line
+        g.drawLine(x, 0.0f, x, (float)getHeight(), 1.0f);
+
+        // Horizontal line
+        g.drawLine(0.0f, y, (float)getWidth(), y, 1.0f);
+
         // Get frequency under mouse X position using logarithmic mapping (same as shader)
         float min_freq = (float)apvts_ref.getRawParameterValue("sp_rng_min")->load();
         float max_freq = std::max((float)apvts_ref.getRawParameterValue("sp_rng_max")->load(), min_freq + 100.0f);

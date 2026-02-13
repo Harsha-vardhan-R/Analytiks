@@ -41,6 +41,8 @@ public:
     PFFFT(AudioProcessorValueTreeState& apvts_reference);
     ~PFFFT();
 
+    void play();
+
     void timerCallback() override;
 
     std::array<Component*, 2> getSpectrogramAndAnalyser();

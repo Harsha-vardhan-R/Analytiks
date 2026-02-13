@@ -342,6 +342,22 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
 
     auto playHead = getPlayHead();
 
+    bool isPlayingNow = false;
+
+    if (playHead) {
+        if (playHead->getPosition()) {
+            isPlayingNow = playHead->getPosition()->getIsPlaying();
+        }
+    }
+
+    if (isPlayingNow && !isLastPlaying) {
+        play();
+        isLastPlaying = true;
+    } else if (!isPlayingNow && isLastPlaying) { 
+        pause();
+        isLastPlaying = false;
+    }
+
     float bpm = 120.0f; 
     int timeSigNum = 4;
     int timeSigDen = 4;
@@ -492,6 +508,16 @@ std::array<juce::Component*, 4> AnalytiksAudioProcessor::getComponentArray()
 void AnalytiksAudioProcessor::setFreeze(bool freeze_val)
 {
     freeze.store(freeze_val);
+}
+
+void AnalytiksAudioProcessor::play()
+{
+    fft_engine->play();
+    oscilloscope_component->parameterChanged("", 0.0f);
+}
+
+void AnalytiksAudioProcessor::pause()
+{
 }
 
 //==============================================================================

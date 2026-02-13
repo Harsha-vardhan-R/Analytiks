@@ -100,9 +100,17 @@ public:
     std::array<juce::Component*, 4> getComponentArray();
     void setFreeze(bool);
 
+    // resets the components indexes to the start so at every play from the daw, you
+    // start seeing the data from the start of the buffer, instead of somewhere in the middle.
+    void play();
+    // presently does nothing on pause.
+    void pause();
+
 private:
 
     std::vector<float> temp_buffer;
+
+    bool isLastPlaying = false;
 
     std::unique_ptr<PFFFT> fft_engine;
     float SR = 44100.0f;
