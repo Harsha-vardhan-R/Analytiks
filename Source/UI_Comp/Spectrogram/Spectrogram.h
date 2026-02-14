@@ -42,6 +42,8 @@ public:
     void paint(Graphics& g) override;
     void resized() override;
 
+    void mouseWheelMove(const MouseEvent&, const MouseWheelDetails&) override;
+
     void mouseEnter(const juce::MouseEvent& e) override;
     void mouseExit(const juce::MouseEvent&) override;
     void mouseMove(const juce::MouseEvent& e) override;

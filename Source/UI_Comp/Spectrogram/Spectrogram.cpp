@@ -23,7 +23,7 @@ SpectrogramComponent::SpectrogramComponent(
     opengl_context.setContinuousRepainting(false);
     opengl_context.attachTo(*this);
     
-    setRepaintsOnMouseActivity(true);
+    // setRepaintsOnMouseActivity(true);
     startTimerHz(60); // Timer for overlay updates when data changes (scrolling, panning)
 
     bool vSync_success = opengl_context.setSwapInterval(1);
@@ -97,59 +97,155 @@ juce::String SpectrogramComponent::frequencyToNote(float frequency) {
     return juce::String(buf);
 }
 
-void SpectrogramComponent::paint(Graphics& g) {
-    if (!mouseOver) return;  // Only show overlay when mouse is over
-    
+void SpectrogramComponent::paint(Graphics& g)
+{
+    if (!mouseOver) return;
+
     g.setColour(juce::Colours::white.withAlpha(0.6f));
 
-    // Snap to pixel centre (avoids blurry 0.5px lines on retina)
     float x = std::floor((float)lastMousePos.x);
     float y = std::floor((float)lastMousePos.y);
 
-    // Vertical line
     g.drawLine(x, 0.0f, x, (float)getHeight(), 1.0f);
-
-    // Horizontal line
     g.drawLine(0.0f, y, (float)getWidth(), y, 1.0f);
 
-    // Get normalized Y coordinate (0 = top = high frequency, 1 = bottom = low frequency)
-    float normalizedY = juce::jlimit(0.0f, 1.0f, (getHeight() - lastMousePos.y) / (float)std::max(1, getHeight()));
+    const int valid = validColumnsInData.load();
+    const int numBins = numValidBins.load();
+
+    if (valid <= 0 || numBins <= 0)
+        return;
+
+    float normalizedY = juce::jlimit(
+        0.0f,
+        1.0f,
+        (getHeight() - lastMousePos.y) / (float)std::max(1, getHeight())
+    );
+
     float freq = getFrequencyFromNormalizedY(normalizedY);
-    
-    // Get normalized X coordinate (column index)
-    float normalizedX = juce::jlimit(0.0f, 1.0f, lastMousePos.x / (float)std::max(1, getWidth()));
-    int col = int(normalizedX * validColumnsInData.load());
-    col = juce::jlimit(0, validColumnsInData.load() - 1, col);
-    
-    // Get bin from frequency
-    float sampleRate = SR;
-    int numBins = numValidBins.load();
+
     float fftSize = float(2 * (numBins - 1));
-    int bin = juce::jlimit(0, numBins - 1, (int)(freq * fftSize / sampleRate));
-    
-    // Get value from spectrogram data
+    int bin = juce::jlimit(
+        0,
+        numBins - 1,
+        (int)(freq * fftSize / SR)
+    );
+
+    float normalizedX = juce::jlimit(
+        0.0f,
+        1.0f,
+        lastMousePos.x / (float)std::max(1, getWidth())
+    );
+
+    int logicalCol = int(normalizedX * valid);
+    logicalCol = juce::jlimit(0, valid - 1, logicalCol);
+
+    int scrollMode =
+        (apvts_ref.getRawParameterValue("gb_vw_mde")->load() > 0.5f)
+        ? 0 : 1;
+
+    int col;
+
+    if (scrollMode == 1)
+    {
+        col = (writeIndex.load() + 1 + logicalCol) % valid;
+    }
+    else
+    {
+        col = logicalCol;
+    }
+
     float value = spectrogram_data[bin][col];
-    
-    // Convert normalized dB (0-1) back to actual dB range (-80 to 0)
     float dB = value * 80.0f - 80.0f;
-    
-    // Get note name
+
     char noteBuf[8];
     getFrequencyToNoteBuf(freq, noteBuf);
-    
-    // Build text using char buffer to avoid encoding issues
+
     char textBuf[256];
-    std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s\nLevel: %.2f dB", freq, noteBuf, dB);
+    std::snprintf(
+        textBuf,
+        sizeof(textBuf),
+        "Freq: %.1f Hz\nNote: %s\nLevel: %.2f dB",
+        freq,
+        noteBuf,
+        dB
+    );
+
     juce::String text(textBuf);
 
-    auto bounds = getLocalBounds().removeFromRight(120).removeFromBottom(50);
+    auto bounds = getLocalBounds()
+                    .removeFromRight(120)
+                    .removeFromBottom(50);
+
     bounds.reduce(4, 4);
 
     g.setColour(juce::Colours::black.withAlpha(0.5f));
     g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
+
     g.setColour(juce::Colours::white);
     g.setFont(juce::Font(12.0f));
-    g.drawFittedText(text, bounds.reduced(4), juce::Justification::topLeft, 3);
+    g.drawFittedText(
+        text,
+        bounds.reduced(4),
+        juce::Justification::topLeft,
+        3
+    );
+}
+
+void SpectrogramComponent::mouseWheelMove(
+    const MouseEvent& e,
+    const MouseWheelDetails& wheel)
+{
+    float minF = apvts_ref.getRawParameterValue("sp_rng_min")->load();
+    float maxF = apvts_ref.getRawParameterValue("sp_rng_max")->load();
+
+    if (maxF <= minF + 10.0f)
+        return;
+
+    float t = jlimit(
+        0.0f,
+        1.0f,
+        (getHeight() - e.position.y) / (float)getHeight()
+    );
+
+    float Lmin = std::log(minF);
+    float Lmax = std::log(maxF);
+
+    float A = 1.0f - t;
+    float B = t;
+
+    float K = A * Lmin + B * Lmax;
+    float W = Lmax - Lmin;
+
+    // wheel.deltaY is inverted on macOS trackpads btw
+    float zoom = std::exp(-wheel.deltaY * 0.35f);
+
+    float Wp = jlimit(0.5f, 10.0f, W * zoom);
+
+    float Lminp = K - B * Wp;
+    float Lmaxp = K + A * Wp;
+
+    float newMin = std::exp(Lminp);
+    float newMax = std::exp(Lmaxp);
+
+    newMin = jlimit(10.0f, 20000.0f, newMin);
+    newMax = jlimit(newMin + 20.0f, 22050.0f, newMax);
+
+    auto* minParam = apvts_ref.getParameter("sp_rng_min");
+    auto* maxParam = apvts_ref.getParameter("sp_rng_max");
+
+    minParam->beginChangeGesture();
+    maxParam->beginChangeGesture();
+
+    minParam->setValueNotifyingHost(
+        minParam->convertTo0to1(newMin)
+    );
+
+    maxParam->setValueNotifyingHost(
+        maxParam->convertTo0to1(newMax)
+    );
+
+    minParam->endChangeGesture();
+    maxParam->endChangeGesture();
 }
 
 void SpectrogramComponent::newDataBatch(std::array<std::vector<float>, 32> &data, int valid, int numBins, float bpm, float sample_rate, int N, int D)
@@ -219,7 +315,7 @@ void SpectrogramComponent::parameterChanged(const String &parameterID, float new
     // In case FFT size is changed.
     clearData();
     writeIndex = 0;
-    validColumnsInData = SPECTROGRAM_MAX_WIDTH; // Will be updated in next newDataBatch
+    // validColumnsInData = SPECTROGRAM_MAX_WIDTH; // Will be updated in next newDataBatch
     accumulator = 0.0f;
     if (trigger_repaint)
         opengl_context.triggerRepaint();
@@ -285,7 +381,7 @@ void SpectrogramComponent::newOpenGLContextCreated()
 
     trigger_repaint = true;
 
-    parameterChanged("", 0.0f);
+    // parameterChanged("", 0.0f);
 
 }
 

@@ -167,7 +167,7 @@ AudioProcessorValueTreeState::ParameterLayout AnalytiksAudioProcessor::create_pa
             "Viridis",
             "Coolwarm",
             "Rainbow",
-            "Hot",
+            "Hot-Berserk",
             "Copper",
             "Pink",
             "Greys",
@@ -424,18 +424,10 @@ void AnalytiksAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuff
             }
         }
 
-        if (fft_engine->getHeight() != 0) {
-            // the callbacks from this will update both the analyser and the spectrogram.
-            // temp_buffer is taken as a const float* to avoid accidental modification.
-            fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
-        }
+        fft_engine->processBlock(temp_buffer.data(), number_of_samples, bpm, SR, timeSigNum, timeSigDen);
 
-        if (phase_correlation_component->getHeight() != 0) {
-            if (oscilloscope_component->getWidth() != 0)
-                oscilloscope_component->newAudioBatch(buffer.getReadPointer(0), buffer.getReadPointer(1), number_of_samples, bpm, SR, timeSigNum);
-        }
+        oscilloscope_component->newAudioBatch(buffer.getReadPointer(0), buffer.getReadPointer(1), number_of_samples, bpm, SR, timeSigNum);
 
-        
         if (present_channel == 0) {
             // do nothing, both channels are already there.
         } else if (present_channel == 1) {

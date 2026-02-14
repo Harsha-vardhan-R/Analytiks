@@ -9,95 +9,126 @@ using namespace juce;
 
 // The move kind of thing on the seperators that is used to resize different
 // components.
-class MoveDragComponent : 
-	public Component
+class MoveDragComponent :
+    public Component
 {
 public:
 
-	MoveDragComponent(std::function<void(Point<int>)> move_callback)
-		: move_delta_callback(move_callback)
-	{
-		setOpaque(false);
-		repaint();
-	}
+    MoveDragComponent(std::function<void(Point<int>)> move_callback,
+                      std::function<void()> release_callback)
+        : move_delta_callback(move_callback),
+          release_callback_fn(release_callback)
+    {
+        setOpaque(false);
 
-	void paint(Graphics& g) override 
-	{
-		if (isMouseButtonDown()) g.setColour(Colours::darkgrey);
-		else g.setColour(Colours::grey);
-		
-		g.drawRect(g.getClipBounds(), 1.0);
-		
-		if (isMouseOver()) g.setColour(Colours::lightgrey);
-		else if (isMouseButtonDown()) g.setColour(Colours::white);
-		else g.setColour(Colours::grey);
+        auto centre = getScreenBounds().getCentre().toFloat();
 
-		auto bounds = g.getClipBounds().reduced(3);
+        dragStartScreen  = centre;
+        accumulatedDrag  = { 0.0f, 0.0f };
+    }
 
-		if (!svgDrawableDull || !svgDrawableBright) return;
+    void paint(Graphics& g) override
+    {
+        if (isMouseButtonDown()) g.setColour(Colours::darkgrey);
+        else g.setColour(Colours::grey);
 
-		auto svgBounds = svgDrawableDull->getDrawableBounds();
+        g.drawRect(g.getClipBounds(), 1.0f);
 
-		AffineTransform transform = AffineTransform::fromTargetPoints(
-			svgBounds.getTopLeft(), bounds.getTopLeft().toFloat(),
-			svgBounds.getTopRight(), bounds.getTopRight().toFloat(),
-			svgBounds.getBottomLeft(), bounds.getBottomLeft().toFloat()
-		);
+        if (!svgDrawableDull || !svgDrawableBright)
+            return;
 
-		if (isMouseButtonDown()) svgDrawableBright->draw(g, 1.0f, transform);
-		else if (isMouseOver()) svgDrawableBright->draw(g, 0.6f, transform);
-		else svgDrawableDull->draw(g, 1.0f, transform);
+        if (isMouseButtonDown())
+            svgDrawableBright->draw(g, 1.0f, cachedTransform);
+        else if (isMouseOver())
+            svgDrawableBright->draw(g, 0.6f, cachedTransform);
+        else
+            svgDrawableDull->draw(g, 1.0f, cachedTransform);
+    }
 
-	}
+    void resized() override
+    {
+        if (!svgDrawableDull)
+            return;
 
-	void resized() override {}
+        auto bounds = getLocalBounds().reduced(3);
+        auto svgBounds = svgDrawableDull->getDrawableBounds();
 
-	void mouseEnter(const MouseEvent& event) override 
-	{
-		repaint();
-	}
-	void mouseExit(const MouseEvent& event) override 
-	{
-		repaint();
-	}
-	void mouseUp(const MouseEvent& event) override
-	{
-		Desktop::setMousePosition(
-			getScreenBounds().getCentre()
-		);
-		setMouseCursor(MouseCursor::NormalCursor);
-		repaint();
-	}
-	void mouseDown(const MouseEvent& event) override
-	{
-		mousePrevPosition = event.getScreenPosition();
-		setMouseCursor(MouseCursor::NoCursor);
-		repaint();
-	}
-	void mouseDrag(const MouseEvent& event) override
-	{
-		auto currentPos = event.getScreenPosition();
-		auto delta = currentPos - mousePrevPosition;
-		mousePrevPosition = currentPos;
+        cachedTransform = AffineTransform::fromTargetPoints(
+            svgBounds.getTopLeft(),     bounds.getTopLeft().toFloat(),
+            svgBounds.getTopRight(),    bounds.getTopRight().toFloat(),
+            svgBounds.getBottomLeft(),  bounds.getBottomLeft().toFloat()
+        );
+    }
 
-		if (move_delta_callback)
-			move_delta_callback(delta);
+    void mouseEnter(const MouseEvent&) override
+    {
+        repaint();
+    }
 
-		repaint();
-	}
+    void mouseExit(const MouseEvent&) override
+    {
+        repaint();
+    }
+
+    void mouseDown(const MouseEvent& e) override
+    {
+        dragStartScreen = e.position + e.eventComponent->getScreenPosition().toFloat();
+        accumulatedDrag = { 0.0f, 0.0f };
+
+        setMouseCursor(MouseCursor::NoCursor);
+        beginDragAutoRepeat(50);
+    }
+
+    void mouseUp(const MouseEvent&) override
+    {
+        setMouseCursor(MouseCursor::NormalCursor);
+
+        if (release_callback_fn)
+            release_callback_fn();
+
+        Desktop::setMousePosition(getScreenBounds().getCentre());
+        repaint();
+    }
+
+    void mouseDrag(const MouseEvent& e) override
+    {
+        auto current =
+            e.position + e.eventComponent->getScreenPosition().toFloat();
+
+        auto totalDrag = current - dragStartScreen;
+
+        auto deltaFloat = totalDrag - accumulatedDrag;
+        accumulatedDrag = totalDrag;
+
+        Point<int> deltaInt{
+            (int)std::round(deltaFloat.x),
+            (int)std::round(deltaFloat.y)
+        };
+
+        if (deltaInt != Point<int>())
+        {
+            if (move_delta_callback)
+                move_delta_callback(deltaInt);
+        }
+    }
 
 private:
-	std::function<void(Point<int>)> move_delta_callback;
 
-	// difference between these two is sent to the 
-	// parent, it takes the required actions.
+    std::function<void(Point<int>)> move_delta_callback;
+    std::function<void()> release_callback_fn;
 
-	Point<int> mousePrevPosition;
+    Point<float> dragStartScreen;
+    Point<float> accumulatedDrag;
 
-	std::unique_ptr<Drawable> svgDrawableDull = Drawable::createFromImageData(
-		BinaryData::move_svg_dull_svg, BinaryData::move_svg_dull_svgSize);
-	std::unique_ptr<Drawable> svgDrawableBright = Drawable::createFromImageData(
-		BinaryData::move_svg_bright_svg, BinaryData::move_svg_bright_svgSize);
+    AffineTransform cachedTransform;
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MoveDragComponent);
+    std::unique_ptr<Drawable> svgDrawableDull =
+        Drawable::createFromImageData(BinaryData::move_svg_dull_svg,
+                                      BinaryData::move_svg_dull_svgSize);
+
+    std::unique_ptr<Drawable> svgDrawableBright =
+        Drawable::createFromImageData(BinaryData::move_svg_bright_svg,
+                                      BinaryData::move_svg_bright_svgSize);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MoveDragComponent);
 };

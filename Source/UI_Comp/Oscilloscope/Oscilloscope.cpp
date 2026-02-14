@@ -270,7 +270,7 @@ void OscilloscopeComponent::newOpenGLContextCreated()
     colourmap_dirty = false;
     trigger_repaint = true;
                  
-    parameterChanged("", 0.0f);
+    // parameterChanged("", 0.0f);
 
 }
 

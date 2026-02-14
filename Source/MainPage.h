@@ -19,7 +19,6 @@ public:
         AudioProcessorValueTreeState& apvts_r,
         std::function<void(bool)>& freeze_button_callback,
         std::function<void(bool)>& settings_button_callback,
-        // In order : analyser, spectrogram, oscilloscope, phase correlation.
         std::array<juce::Component*, 4> display_components
     );
     ~MainPage() override;
@@ -29,7 +28,6 @@ public:
 
     void parameterChanged(const String& parameterID, float newValue) override;
 
-    // visible from the plugin editor.
     iconButton freeze_toggle_button;
     iconButton settings_toggle_button;
 
@@ -39,8 +37,11 @@ private:
 
     Label time_history_label;
 
-    //==============================================================================
-    //==============================================================================
+    //==================== LOCAL UI CACHE ====================
+    float ui_sep_x_local = 0.5f;
+    float ui_sep_y_local = 0.5f;
+    //========================================================
+
     Typeface::Ptr typeface_regular{
         Typeface::createSystemTypefaceFor(
             BinaryData::LatoRegular_ttf,
@@ -59,37 +60,47 @@ private:
         BinaryData::settings_icon_svg, BinaryData::settings_icon_svgSize);
     std::unique_ptr<Drawable> freeze_icon = Drawable::createFromImageData(
         BinaryData::freeze_icon_svg, BinaryData::freeze_icon_svgSize);
-    //==============================================================================
-    //==============================================================================
 
     std::function<void(Point<int>)> move_callback =
-        [this](Point<int> delta) {
-
+        [this](Point<int> delta)
+    {
         float width = getWidth();
         float height = getHeight();
-        float paddingInPixels = std::clamp<int>(paddingWidthFraction * width, 2, 6);
-        float ribbonHeight = std::clamp<int>(ribbonHeightFraction * height, 25, 35);
 
-        // Get current values
-        float v_sep_x = apvts_ref.getRawParameterValue("ui_sep_x")->load();
-        float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
+        float paddingInPixels =
+            std::clamp<int>(paddingWidthFraction * width, 2, 6);
 
-        // Calculate new positions
-        float new_v_sep_x = v_sep_x + (float)delta.x / (width - 2 * paddingInPixels);
-        float new_h_sep_y = h_sep_y + (float)delta.y / (height - paddingInPixels - ribbonHeight);
+        float ribbonHeight =
+            std::clamp<int>(ribbonHeightFraction * height, 25, 35);
 
-        apvts_ref.getParameter("ui_sep_x")->setValueNotifyingHost(
-            std::clamp<float>(new_v_sep_x, 0.0f, 1.0f)
-        );
-        apvts_ref.getParameter("ui_sep_y")->setValueNotifyingHost(
-            std::clamp<float>(new_h_sep_y, 0.0f, 1.0f)
-        );
+        ui_sep_x_local +=
+            (float)delta.x / (width - 2 * paddingInPixels);
+
+        ui_sep_y_local +=
+            (float)delta.y / (height - paddingInPixels - ribbonHeight);
+
+        ui_sep_x_local = std::clamp(ui_sep_x_local, 0.0f, 1.0f);
+        ui_sep_y_local = std::clamp(ui_sep_y_local, 0.0f, 1.0f);
 
         resized();
-        repaint();
     };
 
-    // Fractions of width or height taken by base components.
+    std::function<void()> commit_callback =
+        [this]()
+    {
+        auto* px = apvts_ref.getParameter("ui_sep_x");
+        auto* py = apvts_ref.getParameter("ui_sep_y");
+
+        px->beginChangeGesture();
+        py->beginChangeGesture();
+
+        px->setValueNotifyingHost(px->convertTo0to1(ui_sep_x_local));
+        py->setValueNotifyingHost(py->convertTo0to1(ui_sep_y_local));
+
+        px->endChangeGesture();
+        py->endChangeGesture();
+    };
+
     float ribbonHeightFraction = 0.045;
     float paddingWidthFraction = 0.005;
     

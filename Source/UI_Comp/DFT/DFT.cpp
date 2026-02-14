@@ -28,7 +28,7 @@ PFFFT::PFFFT(
             std::cerr << "FFT setup creation failed at index " << n << "\n";
             std::exit(EXIT_FAILURE); // kaboooom, >..<
         }
-
+ 
         windows.push_back(std::vector<float>());
         windows[n].resize(SUPPORTED_FFT_SIZES[n]);
 
@@ -96,7 +96,7 @@ void PFFFT::processBlock(const float* input, int numSamples, float bpm, float SR
 {
     // if we can't see both analyser and the spectrogram - 
     // there is not a need to calculate this.
-    if (spectral_analyser_component->getHeight() == 0) return;
+    // if (spectral_analyser_component->getHeight() == 0) return;
     // ===================================================
 
     int FFT_order = apvts_ref.getRawParameterValue("gb_fft_ord")->load();
@@ -162,11 +162,11 @@ void PFFFT::processBlock(const float* input, int numSamples, float bpm, float SR
         }
     }
 
-    if (spectrogram_component->getWidth() != 0)
-        spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
+    // if (spectrogram_component->getWidth() != 0)
+    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
     
-    if (spectral_analyser_component->getWidth() == 0)
-        return;
+    // if (spectral_analyser_component->getWidth() == 0)
+    //     return;
 
     for (int i = 0; i < indx; ++i) {
         spectral_analyser_component->newData(processed_amplitude_data[i].data(), (fft_size / 2) + 1);

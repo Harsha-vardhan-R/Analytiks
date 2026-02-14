@@ -40,6 +40,8 @@ public:
     void renderOpenGL() override;
     void openGLContextClosing() override;
 
+    void mouseWheelMove(const MouseEvent&, const MouseWheelDetails&) override;
+
     // Overlay paint is handled in paint()
     void resized() override {
         if (send_triggerRepaint) opengl_context.triggerRepaint();
@@ -215,8 +217,10 @@ private:
 
             vec3 colour = mix(colorMap_lower, colorMap_higher, amp);
 
-            // your vertical grid lines
-            if (fract(uv.x * 7.0) > 0.98)
+            // looks stupid works perfectly. 
+            float pxx = (1.0 / resolution.x) * 7 + 0.001; 
+            // your vertical grid lines 
+            if (fract(uv.x * 7.0) < pxx) 
                 colour *= 0.0;
 
             gl_FragColor = vec4(colour * (bar + ribbonB), 1.0);

@@ -149,6 +149,8 @@ private:
     {
         std::vector<Tick> out;
 
+        fMax = jmax(fMin + 100, fMax);
+
         const float logMin = safeLog(fMin);
         const float logMax = safeLog(fMax);
 

@@ -186,12 +186,12 @@ void SpectrumAnalyserComponent::drawOverlay(juce::Graphics& g) {
     if (mouseOver) {
         std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s\nLevel: %.2f dB", freq, noteBuf, dB);
     } else {
-        std::snprintf(textBuf, sizeof(textBuf), "Freq: %.1f Hz\nNote: %s", freq, noteBuf);
+        std::snprintf(textBuf, sizeof(textBuf), "Peak: %.1f Hz\nNote: %s", freq, noteBuf);
     }
     
     juce::String text(textBuf);
 
-    auto bounds = getLocalBounds().removeFromRight(120).removeFromBottom(50);
+    auto bounds = getLocalBounds().removeFromRight(150).removeFromBottom(50);
     bounds.reduce(4, 4);
 
     g.setColour(juce::Colours::black.withAlpha(0.5f));
@@ -303,6 +303,63 @@ void SpectrumAnalyserComponent::renderOpenGL()
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void SpectrumAnalyserComponent::mouseWheelMove(
+    const MouseEvent& e,
+    const MouseWheelDetails& wheel)
+{
+    float minF = apvts_ref.getRawParameterValue("sp_rng_min")->load();
+    float maxF = apvts_ref.getRawParameterValue("sp_rng_max")->load();
+
+    if (maxF <= minF + 10.0f)
+        return;
+
+    float t = jlimit(
+        0.0f,
+        1.0f,
+        (getHeight() - e.position.y) / (float)getHeight()
+    );
+
+    float Lmin = std::log(minF);
+    float Lmax = std::log(maxF);
+
+    float A = 1.0f - t;
+    float B = t;
+
+    float K = A * Lmin + B * Lmax;
+    float W = Lmax - Lmin;
+
+    // wheel.deltaY is inverted on macOS trackpads btw
+    float zoom = std::exp(-wheel.deltaY * 0.35f);
+
+    float Wp = jlimit(0.5f, 10.0f, W * zoom);
+
+    float Lminp = K - B * Wp;
+    float Lmaxp = K + A * Wp;
+
+    float newMin = std::exp(Lminp);
+    float newMax = std::exp(Lmaxp);
+
+    newMin = jlimit(10.0f, 20000.0f, newMin);
+    newMax = jlimit(newMin + 20.0f, 22050.0f, newMax);
+
+    auto* minParam = apvts_ref.getParameter("sp_rng_min");
+    auto* maxParam = apvts_ref.getParameter("sp_rng_max");
+
+    minParam->beginChangeGesture();
+    maxParam->beginChangeGesture();
+
+    minParam->setValueNotifyingHost(
+        minParam->convertTo0to1(newMin)
+    );
+
+    maxParam->setValueNotifyingHost(
+        maxParam->convertTo0to1(newMax)
+    );
+
+    minParam->endChangeGesture();
+    maxParam->endChangeGesture();
 }
 
 void SpectrumAnalyserComponent::openGLContextClosing()

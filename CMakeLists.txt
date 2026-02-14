@@ -25,8 +25,10 @@ if(APPLE)
     endif()
 endif()
 
- # Project declaration (include C for pfft C sources)
-project(Analytiks VERSION 1.5.0 LANGUAGES C CXX)
+# Project declaration (include C for pfft C sources)
+project(Analytiks VERSION 1.6.0 LANGUAGES C CXX)
+set(JucePlugin_VersionString "${PROJECT_VERSION}")
+message("Project version : ${PROJECT_VERSION}")
 
 add_subdirectory(JUCE)
 

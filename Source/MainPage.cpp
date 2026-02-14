@@ -10,7 +10,7 @@ MainPage::MainPage(
     settings_toggle_button(settings_icon, settings_button_callback),
     apvts_ref(apvts_r),
     display_component_pointers(display_components),
-    move_drag_comp(move_callback),
+    move_drag_comp(move_callback, commit_callback),    
     volume_labels(typeface_regular, volume_seperator_labels),
     specrtum_volume_labels(typeface_regular, spectrum_volume_seperator_labels),
     spectrum_frequency_labels(apvts_r, typeface_regular)
@@ -35,8 +35,11 @@ MainPage::MainPage(
 
     apvts_ref.addParameterListener("sp_measure", this);
     apvts_ref.addParameterListener("sp_multiple", this);
+
+    ui_sep_x_local = apvts_ref.getRawParameterValue("ui_sep_x")->load();
+    ui_sep_y_local = apvts_ref.getRawParameterValue("ui_sep_y")->load();
     
-    plugin_name_label.setText("Analytiks", dontSendNotification);
+    plugin_name_label.setText("Analytiks | MixedSignals", dontSendNotification);
     plugin_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
     plugin_build_name_label.setText(JucePlugin_VersionString, dontSendNotification);
     plugin_build_name_label.setColour(Label::ColourIds::textColourId, Colours::white);
@@ -92,8 +95,8 @@ void MainPage::paint(Graphics& g)
 
     g.setColour(accentColour);
 
-    float v_sep_x = apvts_ref.getRawParameterValue("ui_sep_x")->load();
-    float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
+    float v_sep_x = ui_sep_x_local;
+    float h_sep_y = ui_sep_y_local;
 
     // snap feature, if the space is too small snap and close that component.
     if (v_sep_x < 0.1) v_sep_x = 0.0;
@@ -150,8 +153,8 @@ void MainPage::resized()
 
     // based on the parameters `ui_sep_x` and `ui_sep_y`divide bounds into 4 parts.
     // 0.0 and 1.0 here mean the min and max where the movable can be moved.
-    float v_sep_x = apvts_ref.getRawParameterValue("ui_sep_x")->load();
-    float h_sep_y = apvts_ref.getRawParameterValue("ui_sep_y")->load();
+    float v_sep_x = ui_sep_x_local;
+    float h_sep_y = ui_sep_y_local;
 
     int verticalSeperator_x, horizontalSeperator_y;
 
@@ -199,7 +202,7 @@ void MainPage::resized()
     plugin_build_name_label.setFont(cust_font_regular);
     wid += cust_font_regular.getStringWidthFloat(plugin_build_name_label.getText());
     
-    wid *= 1.2;
+    wid *= 1;
     auto plugin_name_build_version_bounds = Rectangle<int>(
         getWidth() - wid,
         ribbon.getY(),
@@ -208,7 +211,7 @@ void MainPage::resized()
     );
 
     plugin_name_label.
-        setBounds(plugin_name_build_version_bounds.removeFromLeft(plugin_name_build_version_bounds.getWidth()*0.7));
+        setBounds(plugin_name_build_version_bounds.removeFromLeft(plugin_name_build_version_bounds.getWidth()*0.85));
     plugin_build_name_label.setBounds(plugin_name_build_version_bounds);
 
     ribbon.removeFromLeft(10);
