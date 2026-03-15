@@ -19,14 +19,16 @@ PFFFT::PFFFT(
     ring_buffer.resize(INPUT_RING_BUFFER_SIZE);
 
     for (int i = 0; i < MAX_ACCUMULATED; ++i) {
-        processed_amplitude_data[i].resize(MAX_BUFFER_SIZE);  // or max bin count
+        processed_amplitude_data[i].resize(MAX_BUFFER_SIZE);
     }
 
+    // pre-size each result slot in the worker_buffers — nothing else needed,
+    // WorkerFFTBuffers allocates its own aligned memory on construction.
     for (int n = 0; n < NUM_SUPPORTED_N; ++n)
     {
         if (!pffft_setups[n]) {
             std::cerr << "FFT setup creation failed at index " << n << "\n";
-            std::exit(EXIT_FAILURE); // kaboooom, >..<
+            std::exit(EXIT_FAILURE);
         }
  
         windows.push_back(std::vector<float>());
@@ -45,6 +47,9 @@ PFFFT::PFFFT(
 
 PFFFT::~PFFFT()
 {
+    // fft_worker_pool destructor joins all workers before we free anything below.
+    // Declaration order in the header guarantees fft_worker_pool is destroyed
+    // before pffft_setups, so no worker can be mid-transform when we free setups.
 
     for (PFFFT_Setup* setup : pffft_setups)
         pffft_destroy_setup(setup);
@@ -52,17 +57,44 @@ PFFFT::~PFFFT()
     pffft_aligned_free(pffft_input);
     pffft_aligned_free(pffft_work);
     pffft_aligned_free(pffft_output);
-    
 }
 
 void PFFFT::play()
 {
-    // resets the indexes
     spectrogram_component->parameterChanged("", 0.0f);
 }
 
 void PFFFT::timerCallback()
 {
+    // Drain the result queue on the UI/timer thread.
+    // Workers push FFTResult objects here; we consume them all each tick.
+    // The mutex is held only briefly per result — this never blocks the audio thread
+    // because the audio thread only holds the mutex during a quick push.
+    while (true)
+    {
+        FFTResult result;
+        {
+            std::lock_guard<std::mutex> lock(result_mutex);
+            if (result_queue.empty()) break;
+            result = std::move(result_queue.front());
+            result_queue.pop_front();
+        }
+
+        // These calls are safe here — we're on the UI thread i.e. message thread.
+        spectrogram_component->newDataBatch(
+            result.amplitude_data,
+            result.valid_frames,
+            result.num_bins,
+            result.bpm,
+            result.sample_rate,
+            result.N,
+            result.D
+        );
+
+        for (int i = 0; i < result.valid_frames; ++i)
+            spectral_analyser_component->newData(result.amplitude_data[i].data(), result.num_bins);
+    }
+
     spectral_analyser_component->timerCallback();
     spectrogram_component->timerCallback();
 }
@@ -73,7 +105,6 @@ std::array<Component*, 2> PFFFT::getSpectrogramAndAnalyser()
         spectrogram_component.get(),
         spectral_analyser_component.get()
     };
-
     return arr;
 }
 
@@ -84,101 +115,137 @@ void PFFFT::prepareToPlay(double sampleRate, int samplesPerBlock)
 
 void PFFFT::cleanAllContainers()
 {
-    for (auto& value : ring_buffer)
-        value = 0.0;
-
-    for (auto& value : amplitude_buffer)
-        value = 0.0;
-
+    for (auto& value : ring_buffer)   value = 0.0;
+    for (auto& value : amplitude_buffer) value = 0.0;
 }
 
 void PFFFT::processBlock(const float* input, int numSamples, float bpm, float SR, int N, int D)
 {
-    // if we can't see both analyser and the spectrogram - 
-    // there is not a need to calculate this.
-    // if (spectral_analyser_component->getHeight() == 0) return;
-    // ===================================================
-
     int FFT_order = apvts_ref.getRawParameterValue("gb_fft_ord")->load();
 
     auto it = SUPPPORTED_N_INDEX.find(FFT_order + 9);
     if (it == SUPPPORTED_N_INDEX.end()) {
         std::cout << "Unsupported FFT order requested : " << FFT_order << "\n";
-        return; // Invalid order
+        return;
     }
 
-    int fft_index = it->second;
-    int fft_size = SUPPORTED_FFT_SIZES[fft_index];
-    PFFFT_Setup* setup = pffft_setups[fft_index];
-    auto& windowing_array = windows[fft_index];
+    int          fft_index       = it->second;
+    int          fft_size        = SUPPORTED_FFT_SIZES[fft_index];
+    PFFFT_Setup* setup           = pffft_setups[fft_index];
+    auto&        windowing_array = windows[fft_index];
+    int          hop_size        = overlap_samples;
+    int          num_bins        = (fft_size / 2) + 1;
 
-    // int hop_size = static_cast<int>(fft_size * (1.0f - overlap_amnt));
-    int hop_size = overlap_samples;
-
-    // write new data to ring buff.
+    // Write new samples into the ring buffer — audio thread only, no lock needed.
     for (int i = 0; i < numSamples; ++i)
     {
         ring_buffer[WriteIndex] = input[i];
         WriteIndex = (WriteIndex + 1) % ring_buffer.size();
     }
 
-    int indx = 0;
+    // Collect all available frames from the ring buffer into a local snapshot.
+    // We do the ring buffer reads here on the audio thread (cheap), then hand
+    // the raw samples to the worker thread for the actual FFT + amplitude math.
+    struct FrameSnapshot {
+        std::vector<float> samples; // windowed samples, fft_size long
+    };
 
-    // Process as many frames as possible
-    while (true)
+    std::vector<FrameSnapshot> frames;
+    frames.reserve(MAX_ACCUMULATED);
+
+    while ((int)frames.size() < MAX_ACCUMULATED)
     {
-        
         int available = (WriteIndex >= ReadIndex)
             ? (WriteIndex - ReadIndex)
-            : (ring_buffer.size() - ReadIndex + WriteIndex);
+            : ((int)ring_buffer.size() - ReadIndex + WriteIndex);
 
-        if (available < fft_size)
-            break;
+        if (available < fft_size) break;
 
-        // Copy fft_size samples with the window multiplied.
+        FrameSnapshot snap;
+        snap.samples.resize(fft_size);
+
         for (int i = 0; i < fft_size; ++i)
         {
             int idx = (ReadIndex + i) % ring_buffer.size();
-            pffft_input[i] = ring_buffer[idx] * windowing_array[i];
+            snap.samples[i] = ring_buffer[idx] * windowing_array[i];
         }
 
-        pffft_transform_ordered(setup, pffft_input, pffft_output, NULL, PFFFT_FORWARD);
-        calculateAmplitudesFromFFT(pffft_output, amplitude_buffer.data(), fft_size);
-
-        int num_bins = (fft_size / 2) + 1;
-
+        frames.push_back(std::move(snap));
         ReadIndex = (ReadIndex + hop_size) % ring_buffer.size();
-
-        auto& vec_reference = processed_amplitude_data[indx];
-        for (int bin = 0; bin < num_bins; ++bin) {
-            vec_reference[bin] = amplitude_buffer[bin];
-        }
-        
-        indx++;
-
-        if (indx >= MAX_ACCUMULATED) {
-            std::cerr << "Processed amplitude data buffer overflow\n";
-            break;
-        }
     }
 
-    // if (spectrogram_component->getWidth() != 0)
-    spectrogram_component->newDataBatch(processed_amplitude_data, indx, (fft_size / 2) + 1, bpm, SR, N, D);
-    
-    // if (spectral_analyser_component->getWidth() == 0)
-    //     return;
+    if (frames.empty()) return;
 
-    for (int i = 0; i < indx; ++i) {
-        spectral_analyser_component->newData(processed_amplitude_data[i].data(), (fft_size / 2) + 1);
-    }
+    // Submit all the FFT work to the pool.
+    // The lambda captures by value everything the worker needs:
+    //   - frames        : the windowed sample data (moved in)
+    //   - setup         : read-only PFFFT_Setup*, safe across threads
+    //   - fft_size/bins : plain ints
+    //   - bpm/SR/N/D    : plain values for result metadata
+    //   - this          : to access worker_buffers and push to result_queue
+    //
+    // worker_id is received via the task_init_callback to index worker_buffers.
+    // We use a shared_ptr<int> to pass the worker_id into the lambda because
+    // we can't capture it directly before submission.
+
+    // Round-robin worker buffer selection — audio thread is the only submitter,
+    // so this counter has no race.
+    static int buffer_index = 0;
+    int buf_idx = buffer_index % 2;
+    buffer_index++;
+
+    // Capture everything by value. frames is moved in to avoid a copy.
+    fft_worker_pool.submit_work([
+        this,
+        frames      = std::move(frames),
+        setup,
+        fft_size,
+        num_bins,
+        buf_idx,
+        bpm, SR, N, D
+    ]() mutable
+    {
+        WorkerFFTBuffers& bufs = worker_buffers[buf_idx];
+
+        FFTResult result;
+        result.num_bins     = num_bins;
+        result.bpm          = bpm;
+        result.sample_rate  = SR;
+        result.N            = N;
+        result.D            = D;
+
+        for (int i = 0; i < MAX_ACCUMULATED; ++i)
+            result.amplitude_data[i].resize(num_bins);
+
+        int indx = 0;
+        for (auto& frame : frames)
+        {
+            // copy windowed samples into this worker's own input buffer
+            std::memcpy(bufs.input, frame.samples.data(), fft_size * sizeof(float));
+
+            pffft_transform_ordered(setup, bufs.input, bufs.output, bufs.work, PFFFT_FORWARD);
+
+            calculateAmplitudesFromFFT(bufs.output, result.amplitude_data[indx].data(), fft_size);
+
+            indx++;
+        }
+
+        result.valid_frames = indx;
+
+        // Push to result queue — timerCallback drains this on the UI thread.
+        {
+            std::lock_guard<std::mutex> lock(result_mutex);
+            result_queue.push_back(std::move(result));
+        }
+    });
 }
 
 void PFFFT::calculateAmplitudesFromFFT(float* input, float* output, int numSamples)
 {
     int num_bins = (numSamples / 2) + 1;
-    output[0] = std::abs(input[0]);           // DC
+    output[0] = std::abs(input[0]);            // DC
     output[num_bins - 1] = std::abs(input[1]); // Nyquist
-    for (int bin = 1; bin < num_bins - 1; ++bin) { // DC and nyquist are the bins that are excluded.
+    for (int bin = 1; bin < num_bins - 1; ++bin) {
         float real = input[2 * bin];
         float imag = input[2 * bin + 1];
         output[bin] = std::sqrt(real * real + imag * imag);
@@ -186,17 +253,10 @@ void PFFFT::calculateAmplitudesFromFFT(float* input, float* output, int numSampl
 
     for (int bin = 0; bin < num_bins; ++bin) {
         output[bin] /= (float)numSamples;
-
-        // output is sent as a dB map that is normalised to 0.0 to 1.0,
-        // because both the analyser and the spectrogram expect that.
         output[bin] = 
-            jmap<float> ( 
+            jmap<float>(
                 20.0f * log10f(std::clamp<float>(output[bin], 0.0, 1.0) + 1e-4f),
-                -80,
-                0,
-                0,
-                1);
-
+                -80, 0, 0, 1
+            );
     }
 }
-

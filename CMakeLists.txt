@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -28,7 +28,7 @@ if(APPLE)
     set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")
 endif()
 
-project(Analytiks VERSION 1.6.0 LANGUAGES C CXX)
+project(Analytiks VERSION 1.6.1 LANGUAGES C CXX)
 set(JucePlugin_VersionString "${PROJECT_VERSION}")
 
 add_subdirectory(JUCE)
